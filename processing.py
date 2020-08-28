@@ -16,7 +16,18 @@ def save_h5(data, dirname, filename):
     h5file = os.path.join(f'{dirname}', f'{filename}')
     with h5py.File(h5file, 'w') as f:
         f.create_dataset('data', data=data)
+
         
+def job_chunks(n_jobs, ntrains):
+    chunk = int(np.ceil(ntrains / n_jobs))  # jobs per process
+
+    # A little bit messy splitting of the job into multiple runs
+    boundaries = np.arange(ntrains, step=chunk)
+    ranges = [range(boundaries[i], boundaries[i+1]) for i in range(n_jobs-1)]
+    ranges.append(range(boundaries[-1], ntrains))  # adjusting the last job
+    
+    return ranges
+
 
 class Module:
     """Class used for processing individual modules."""
@@ -89,8 +100,6 @@ class Module:
         if train_indices is None:
             train_indices = range(self.ntrains)
         
-        
-        
         # Function for parallel processing
         def parallel_function(trains):
             frames_sum = 0  # sum of frames are added to it
@@ -110,13 +119,8 @@ class Module:
             
             return frames_sum, frames_num
 
-        n_jobs = 10
-        chunk = int(np.ceil(len(train_indices) / n_jobs))  # jobs per process
-        boundaries = np.arange(len(train_indices), step=chunk)
-        print(boundaries)
-        ranges = [range(boundaries[i], boundaries[i+1]) for i in range(n_jobs-1)]
-        ranges.append(range(boundaries[-1], len(train_indices)))
-        print(ranges)
+        n_jobs = 10  # number of cores - can be exposed later
+        ranges = job_chunks(n_jobs, len(train_indices))
         
         res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i) for i in ranges)
         
@@ -165,23 +169,36 @@ class Module:
         
         # Second, we load average(images) - average(darks) for the dark run.
         # We assume the data has been saved already.
-        filename = os.path.join(f'{dirname}', f'run_{dark_run}', f'module_{self.module}_diff.h5')
+        filename = os.path.join('processed_runs_xgm', f'run_{dark_run}', f'module_{self.module}_diff.h5')
         with h5py.File(filename, 'r') as f:
             dark_run_data = f['data'][:]
             
         # This is the value we subtract from each image before we normalise it with XGM value.
         subtraction_value = darks_average + dark_run_data
         
-        # For details of the following code, please refer to the previous function.
-        frames_sum = 0
-        frames_num = 0
-        for i in train_indices:
-            train = self.train(i)
-            if train.valid:
-                # Please note we pass subtraction value here. 
-                s, n = train.images.process(normalised=True, subtraction_value=subtraction_value)
-                frames_sum += s
-                frames_num += n
+        def parallel_function(trains):
+            # For details of the following code, please refer to the previous function.
+            frames_sum = 0
+            frames_num = 0
+            
+            for i in trains:
+                train = self.train(i)
+                
+                if train.valid:
+                    # Please note we pass subtraction value here. 
+                    s, n = train.images.process(normalised=True, subtraction_value=subtraction_value)
+                    frames_sum += s
+                    frames_num += n
+
+            return frames_sum, frames_num
+        
+        n_jobs = 10  # number of cores - can be exposed later
+        ranges = job_chunks(n_jobs, len(train_indices))
+        
+        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i) for i in ranges)
+        
+        frames_sum = sum(list(zip(*res))[0])
+        frames_num = sum(list(zip(*res))[1])
          
         # Compute the average of frames.
         frames_average = frames_sum / frames_num
