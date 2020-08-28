@@ -1,7 +1,6 @@
 import os
 import h5py
-import pandas
-import datetime
+import joblib
 import numpy as np
 import extra_data as ed
 
@@ -18,6 +17,7 @@ def save_h5(data, dirname, filename):
     with h5py.File(h5file, 'w') as f:
         f.create_dataset('data', data=data)
         
+
 class Module:
     """Class used for processing individual modules."""
     def __init__(self, proposal, run, module, pattern):
@@ -89,20 +89,39 @@ class Module:
         if train_indices is None:
             train_indices = range(self.ntrains)
         
-        frames_sum = 0  # sum of frames are added to it
-        frames_num = 0  # number of summed frames are added to it
         
-        # We iterate through all trains.
-        for i in train_indices:
-            train = self.train(i)  # get train object
+        
+        # Function for parallel processing
+        def parallel_function(trains):
+            frames_sum = 0  # sum of frames are added to it
+            frames_num = 0  # number of summed frames are added to it
             
-            # Train is valid if it contains image.data.
-            if train.valid:
-                # Compute sum of frames and the number of summed frames.
-                s, n = getattr(train, frame_type).process(normalised=False)
-                
-                frames_sum += s
-                frames_num += n
+            # We iterate through all trains.
+            for i in trains:
+                train = self.train(i)  # get train object
+
+                # Train is valid if it contains image.data.
+                if train.valid:
+                    # Compute sum of frames and the number of summed frames.
+                    s, n = getattr(train, frame_type).process(normalised=False)
+                    
+                    frames_sum += s
+                    frames_num += n
+            
+            return frames_sum, frames_num
+
+        n_jobs = 10
+        chunk = int(np.ceil(len(train_indices) / n_jobs))  # jobs per process
+        boundaries = np.arange(len(train_indices), step=chunk)
+        print(boundaries)
+        ranges = [range(boundaries[i], boundaries[i+1]) for i in range(n_jobs-1)]
+        ranges.append(range(boundaries[-1], len(train_indices)))
+        print(ranges)
+        
+        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i) for i in ranges)
+        
+        frames_sum = sum(list(zip(*res))[0])
+        frames_num = sum(list(zip(*res))[1])
                 
         # Compute average.
         frames_average = frames_sum / frames_num
