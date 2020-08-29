@@ -3,6 +3,7 @@ import h5py
 import joblib
 import numpy as np
 import extra_data as ed
+import xarray as xr
 
 
 def save_h5(data, dirname, filename):
@@ -289,3 +290,14 @@ class Container:
         else:
             # If no normalisation is required, simple sum is computed.
             return np.sum(self.data, axis=0), self.n
+
+
+def concat_module_images(dirname, run):
+    data = np.empty((16,128,512), dtype=np.float64)
+    for module_number in range(16):
+        filename = os.path.join(dirname, f'run_{run}', f'module_{module_number}_normalised.h5')
+        with h5py.File(filename, 'r') as f:
+            module_data = f['data'][:] 
+        data[module_number, ...] = np.squeeze(module_data)
+    return xr.DataArray(data, dims=('module', 'x', 'y'),
+                        coords={'module': range(16), 'x': range(1,129), 'y': range(1,513)})
