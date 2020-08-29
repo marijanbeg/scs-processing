@@ -41,6 +41,70 @@ def job_chunks(n_jobs, ntrains):
     return ranges
 
 
+class Train:
+    """Class for processing individual trains."""
+    def __init__(self, data, pattern, xgm):
+        self.data = data[list(data.keys())[0]]['image.data']
+        self.pattern = np.array(pattern)
+        self.xgm = xgm
+
+    @property
+    def __bool__(self):
+        """If there is no data in train, False is returned. Otherwise, True."""
+        if 'image.data' in self.data[self.selector].keys():
+            return True
+        else:
+            return False
+
+    def __getitem__(self, frame_type):
+        return Container(self.data[self.pattern==frame_type, ...],
+                         xgm=self.xgm)
+
+
+class Container:
+    def __init__(self, data, xgm):
+        self.data = data
+        self.xgm = xgm
+
+    @property
+    def n(self):
+        """The number of frames in the container."""
+        return self.data.shape[0]
+
+    def __add__(self, other):
+        return self.__class__(data=self.data+other.data, xgm=None)
+
+    def process(self, normalised=True, subtraction_value=0):
+        """Sums all frames in the container and counts how many trains were added.
+
+        Returns a tuple: (sum of frames, number of summed frames)
+
+        normalised (bool) - If True, from each image subtraction_value is subtracted.
+                            The result is then divided by XGM value.
+
+        """
+        if normalised:
+            frames_sum = 0
+            frames_num = 0
+            for frame in range(self.n):
+                # The value of XGM can be zero.
+                # This means that division would result in error or it can be very large, so that the final sum is corrupted.
+                # Marijan: I arbitrarily chose this small value (1e-5)
+                if self.xgm[frame] > 1e-5:  # discard low reading of XGM
+                    frame_value = self.data[frame, ...]  # frame values
+                    xgm_value = self.xgm[frame].values  # value of XGM for an image frame
+
+                    frames_sum += (frame_value - subtraction_value) / xgm_value
+
+                    # One frame processed -> counter incremented.
+                    frames_num += 1
+
+            return frames_sum, frames_num
+        else:
+            # If no normalisation is required, simple sum is computed.
+            return np.sum(self.data, axis=0), self.n
+
+
 class XGM:
     def __init__(self, proposal, run, module, pattern):
         """Class used for extraction and using XGM data.
@@ -141,7 +205,8 @@ class Module:
         No normalisation is done here and it is used for processing dark runs.
 
         frame_type - 'image' or 'dark'
-        train_indices - list of train indices to be summed. If None, all trains are processed.
+        train_indices - list of train indices to be summed.
+                        If None, all trains are processed.
         dirname - if specified, data is saved as an HDF5 file in dirname.
 
         """
@@ -263,83 +328,6 @@ class Module:
             save_h5(frames_average, dirname, filename)
         else:
             return frames_average
-
-
-class Train:
-    """Class for processing individual trains."""
-    def __init__(self, data, pattern, xgm):
-        self.data = data
-        self.pattern = np.array(pattern)
-        self.xgm = xgm
-
-    @property
-    def valid(self):
-        """If there is no data in train, False is returned. Otherwise, True."""
-        if 'image.data' in self.data[self.selector].keys():
-            return True
-        else:
-            return False
-
-    @property
-    def selector(self):
-        """Data selector."""
-        return list(self.data.keys())[0]
-
-    @property
-    def frames(self):
-        """Numpy array of all frames in the train."""
-        return self.data[self.selector]['image.data']
-
-    @property
-    def images(self):
-        """Returns container with image frames only."""
-        return Container(self.frames[self.pattern=='image', ...], xgm=self.xgm)
-
-    @property
-    def darks(self):
-        """Returns container with dark frames only."""
-        return Container(self.frames[self.pattern=='dark', ...], xgm=self.xgm)
-
-
-class Container:
-    def __init__(self, data, xgm):
-        self.data = data
-        self.xgm = xgm
-
-    @property
-    def n(self):
-        """The number of frames in the container."""
-        return self.data.shape[0]
-
-    def process(self, normalised=True, subtraction_value=0):
-        """Sums all frames in the container and counts how many trains were added.
-
-        Returns a tuple: (sum of frames, number of summed frames)
-
-        normalised (bool) - If True, from each image subtraction_value is subtracted.
-                            The result is then divided by XGM value.
-
-        """
-        if normalised:
-            frames_sum = 0
-            frames_num = 0
-            for frame in range(self.n):
-                # The value of XGM can be zero.
-                # This means that division would result in error or it can be very large, so that the final sum is corrupted.
-                # Marijan: I arbitrarily chose this small value (1e-5)
-                if self.xgm[frame] > 1e-5:  # discard low reading of XGM
-                    frame_value = self.data[frame, ...]  # frame values
-                    xgm_value = self.xgm[frame].values  # value of XGM for an image frame
-
-                    frames_sum += (frame_value - subtraction_value) / xgm_value
-
-                    # One frame processed -> counter incremented.
-                    frames_num += 1
-
-            return frames_sum, frames_num
-        else:
-            # If no normalisation is required, simple sum is computed.
-            return np.sum(self.data, axis=0), self.n
 
 
 def concat_module_images(dirname, run):
