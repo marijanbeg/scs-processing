@@ -273,8 +273,8 @@ class Module:
 
         # This is the value we subtract from each image before we normalise it
         # with XGM value.
-        sval = dark_average + dr_diff        
-        
+        sval = dark_average + dr_diff
+
         def parallel_function(trains):
             # For details of the following code, please refer to the previous
             # function.
@@ -286,7 +286,8 @@ class Module:
 
                 if train.valid:
                     images = train['image']
-                    s = np.zeros((images.n, images.data.shape[2], images.data.shape[3]))
+                    s = np.zeros((images.n, images.data.shape[2],
+                                  images.data.shape[3]))
                     for i in range(images.n):
                         xgm = train.xgm[i].values
                         if xgm >= 1e-5:
@@ -304,7 +305,7 @@ class Module:
                                          for i in ranges)
 
         trains_sum = sum(list(zip(*res))[0])
-        trains_num = sum(list(zip(*res))[1])      
+        trains_num = sum(list(zip(*res))[1])
 
         # Compute the average of frames.
         trains_average = trains_sum / trains_num
@@ -320,10 +321,11 @@ class Module:
 
 
 def concat_module_images(dirname, run, image_type='normalised'):
-    """Concatenate corrected module images to get one xarray for the whole detector
+    """Concatenate corrected module images to get one xarray for the whole
+    detector
 
-    This function expects normalised images for all modules in a subdirectory of the
-    given basedirectory.
+    This function expects normalised images for all modules in a subdirectory
+    of the given basedirectory.
 
     dirname (str) - the base directory in which processed runs are stored
     run (int) - the run number
