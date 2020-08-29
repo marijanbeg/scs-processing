@@ -561,7 +561,7 @@ def concat_module_images(dirname, run, image_type='normalised'):
             module_data = f['normalised_average'][:]
         frames, x, y = module_data.shape
         if data is None:
-                data = np.empty((frames, 16, x, y), dtype=np.float64)
+                data = np.zeros((frames, 16, x, y), dtype=np.float64)
         data[:, module_number, ...] = module_data
     return xr.DataArray(data, dims=('frame', 'module', 'x', 'y'),
                         coords={'frame': range(frames), 'module': range(16),
