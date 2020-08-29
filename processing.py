@@ -41,6 +41,49 @@ def job_chunks(n_jobs, ntrains):
     return ranges
 
 
+class XGM:
+    def __init__(self, proposal, run, module, pattern):
+        """Class used for extraction and using XGM data.
+
+        proposal (int)- proposal number
+        run (int) - run number
+        module (int) - module number (0-15)
+        pattern (list) - for instance:
+            'image', 'dark', 'image', 'dark', ... , 'end_image'
+
+        Length of pattern list should be the same as the number of frames per
+        train.
+
+        """
+        self.proposal = proposal
+        self.run = run
+        self.module = module
+        self.pattern = pattern
+
+        # Run object.
+        str1 = 'SCS_BLU_XGM/XGM/DOOCS:output'
+        str2 = 'data.intensitySa3TD'
+        orun = ed.open_run(proposal=self.proposal,
+                           run=self.run).select(str1, str2)
+
+    @property
+    def data(self):
+        """XGM data for the entire run."""
+        return orun.get_array(str1, str2)
+
+    @property
+    def n(self):
+        """The number of XGM values.
+
+        It is the same as the number of images in pattern.
+
+        """
+        return np.count_nonzero(np.array(pattern) == 'image')
+
+    def train(self, index):
+        return self.data[index, 0:self.n]
+
+
 class Module:
     def __init__(self, proposal, run, module, pattern):
         """Class used for processing individual modules.
@@ -64,6 +107,9 @@ class Module:
         self.orun = ed.open_run(proposal=proposal,
                                 run=run).select(self.selector, 'image.data')
 
+        # XGM object
+        self.xgm = XGM(proposal, run, module, pattern)
+
     @property
     def selector(self):
         """Module's device name."""
@@ -76,16 +122,8 @@ class Module:
 
     @property
     def fpt(self):
-        """Number of frames per train"""
+        """Number of frames per train."""
         return self.orun.detector_info(self.selector)['frames_per_train']
-
-    @property
-    def xgm(self):
-        """XGM data for the whole run."""
-        tmprun = ed.open_run(proposal=self.proposal,
-                             run=self.run).select('SCS_BLU_XGM/XGM/DOOCS:output',
-                                                  'data.intensitySa3TD')
-        return tmprun.get_array('SCS_BLU_XGM/XGM/DOOCS:output', 'data.intensitySa3TD')
 
     def train(self, index):
         """Returns train object.
@@ -94,7 +132,8 @@ class Module:
 
         """
         _, data = self.orun.train_from_index(index)
-        return Train(data=data, pattern=self.pattern, xgm=self.xgm[index, :])
+        return Train(data=data, pattern=self.pattern,
+                     xgm=self.xgm.train(index))
 
     def process_frames(self, frame_type, train_indices=None, dirname=None):
         """Sums frames of frame_type. Result is an average of frames.
