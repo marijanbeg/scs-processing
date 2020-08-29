@@ -332,11 +332,15 @@ def concat_module_images(dirname, run, image_type='normalised'):
     image_type (str) - the type of images to use. Can be one of
         'normalised', 'diff', 'image', 'dark'
     """
-    data = np.empty((16,128,512), dtype=np.float64)
+    data = None
     for module_number in range(16):
         filename = os.path.join(dirname, f'run_{run}', f'module_{module_number}_{image_type}.h5')
         with h5py.File(filename, 'r') as f:
-            module_data = f['data'][:]
-        data[module_number, ...] = np.squeeze(module_data)
-    return xr.DataArray(data, dims=('module', 'x', 'y'),
-                        coords={'module': range(16), 'x': range(1,129), 'y': range(1,513)})
+            module_data = f['normalised_average'][:]
+        frames, x, y = module_data.shape
+        if data is None:
+                data = np.empty((frames, 16, x, y), dtype=np.float64)
+        data[:, module_number, ...] = module_data
+    return xr.DataArray(data, dims=('frame', 'module', 'x', 'y'),
+                        coords={'frame': range(frames), 'module': range(16),
+                                'x': range(1, x + 1), 'y': range(1, y + 1)})
