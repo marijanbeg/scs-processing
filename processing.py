@@ -291,23 +291,59 @@ class Module:
 
     @property
     def selector(self):
-        """Module's device name."""
+        """Module's device name.
+
+        Returns
+        -------
+        str
+
+            Module's device name.
+
+        """
         return f'SCS_DET_DSSC1M-1/DET/{self.module}CH0:xtdf'
 
     @property
     def ntrains(self):
-        """Number of trains in the run."""
+        """Number of trains in the run.
+
+        Returns
+        -------
+        int
+
+            Number of trains in the run.
+
+        """
         return len(self.orun.train_ids)
 
     @property
     def fpt(self):
-        """Number of frames per train."""
+        """Number of Frames Per Train (FPT).
+
+        Returns
+        -------
+        int
+
+            Number of frames in each train.
+
+        """
         return self.orun.detector_info(self.selector)['frames_per_train']
 
     def train(self, index):
-        """Returns train object.
+        """Extracts Train object for the train with `index`.
 
-        index (int) - 0, 1, 2, 3,....
+        XGM data is propagated to the Train object.
+
+        Parameters
+        ----------
+        index : int
+
+            Index of the train (not its ID). For instance, 0, 1, 2, 3,...
+
+        Returns
+        -------
+        Train
+
+            Train object.
 
         """
         _, data = self.orun.train_from_index(index)
