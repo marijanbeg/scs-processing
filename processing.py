@@ -381,7 +381,7 @@ class Module:
 
         # Function for parallel processing
         def parallel_function(trains):
-            trains_sum = 0  # accumulator for the sum of trains
+            trains_sum = np.zeros((len(trains), 128, 512), dtype='float64')  # accumulator for the sum of trains
             trains_num = 0  # number of summed trains counter
 
             # We iterate through all trains.
@@ -500,7 +500,7 @@ class Module:
         def parallel_function(trains):
             # For details of the following code, please refer to the previous
             # function.
-            trains_sum = 0
+            trains_sum = np.zeros((len(trains), 128, 512), dtype='float64')
             trains_num = 0
 
             for i in trains:
