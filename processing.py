@@ -212,7 +212,6 @@ class Module:
         frame_type - 'image' or 'dark'
         train_indices - list of train indices to be summed.
                         If None, all trains are processed.
-        dirname - if specified, data is saved as an HDF5 file in dirname.
 
         The resulting numpy array has the shape:
 
@@ -241,7 +240,8 @@ class Module:
         n_jobs = 10  # number of cores - can be exposed later
         ranges = job_chunks(n_jobs, len(train_indices))
 
-        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i) for i in ranges)
+        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i)
+                                         for i in ranges)
 
         trains_sum = sum(list(zip(*res))[0])
         trains_num = sum(list(zip(*res))[1])
@@ -276,60 +276,71 @@ class Module:
     def process_normalised(self, dark_run, train_indices=None, dirname=None):
         """Processing with normalisation.
 
-        dark_run - dark run number for which the data has already been processed and saved.
-        train_indices - indices of trains to be processed. If not specified, all trains in the run are summed.
+        dark_run - dark run number for which the data has already been
+                   processed (using process_std) and saved.
+        train_indices - indices of trains to be processed.
+                        If not specified, all trains in the run are summed.
+        dirname - if specified, data is saved as an HDF5 file in dirname.
 
         """
         # If train indices are not specified, all trains are processed.
         if train_indices is None:
             train_indices = range(self.ntrains)
 
-        # First, we compute the average of darks (intradarks). No normalisation.
-        darks_average = self.process_frames(frame_type='darks', train_indices=train_indices)
+        # First, we compute the average of darks (intradarks).
+        dark_average = self.process_frames(frame_type='dark',
+                                           train_indices=train_indices)
 
-        # Second, we load average(images) - average(darks) for the dark run.
-        # We assume the data has been saved already.
-        filename = os.path.join('processed_runs_xgm', f'run_{dark_run}', f'module_{self.module}_diff.h5')
+        # Second, we load image_average and dark_average for the dark run.
+        filename = os.path.join('processed_runs_xgm', f'run_{dark_run}',
+                                f'module_{self.module}_diff.h5')
         with h5py.File(filename, 'r') as f:
-            dark_run_data = f['data'][:]
+            dr_image_average = f['image_average'][:]
+            dr_dark_average = f['dark_average'][:]
 
-        # This is the value we subtract from each image before we normalise it with XGM value.
-        subtraction_value = darks_average + dark_run_data
+        # Now, we compute the difference for the dark run:
+        dr_diff = dr_image_average - dr_dark_average
+
+        # This is the value we subtract from each image before we normalise it
+        # with XGM value.
+        subtraction_value = dark_average + dr_diff
 
         def parallel_function(trains):
-            # For details of the following code, please refer to the previous function.
-            frames_sum = 0
-            frames_num = 0
+            # For details of the following code, please refer to the previous
+            # function.
+            trains_sum = 0
+            trains_num = 0
 
             for i in trains:
                 train = self.train(i)
 
                 if train.valid:
-                    # Please note we pass subtraction value here.
-                    s, n = train.images.process(normalised=True, subtraction_value=subtraction_value)
-                    frames_sum += s
-                    frames_num += n
+                    trains_sum += ((train['image'] - subtraction_value) /
+                                   train.xgm)
+                    trains_num += 1
 
-            return frames_sum, frames_num
+            return trains_sum, trains_num
 
         n_jobs = 10  # number of cores - can be exposed later
         ranges = job_chunks(n_jobs, len(train_indices))
 
-        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i) for i in ranges)
+        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i)
+                                         for i in ranges)
 
-        frames_sum = sum(list(zip(*res))[0])
-        frames_num = sum(list(zip(*res))[1])
+        trains_sum = sum(list(zip(*res))[0])
+        trains_num = sum(list(zip(*res))[1])
 
         # Compute the average of frames.
-        frames_average = frames_sum / frames_num
+        trains_average = trains_sum / trains_num
 
         # Save data if dirname is specified.
         if dirname is not None:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_normalised.h5'
-            save_h5(frames_average, dirname, filename)
+            data = {'normalised_average': trains_average}
+            save_h5(data, dirname, filename)
         else:
-            return frames_average
+            return trains_average
 
 
 def concat_module_images(dirname, run, image_type='normalised'):
