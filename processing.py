@@ -501,7 +501,7 @@ class Module:
         def parallel_function(trains):
             # For details of the following code, please refer to the previous
             # function.
-            ft_data = self.train(trains[0])[frame_type].data
+            ft_data = np.squeeze(self.train(trains[0])['image'].data)
             trains_sum = np.zeros_like(ft_data, dtype='float64')  # accumulator for the sum of trains
             trains_num = 0
 
