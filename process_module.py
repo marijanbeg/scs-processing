@@ -1,9 +1,14 @@
+import os
 import argparse
 import processing as pr
 
 
 proposal = 2530
 pattern = ['image', 'dark'] * 99 + ['end_image']
+dirname = 'processed_runs_xgm'
+
+if not os.path.exists(dirname):
+    os.makedirs(dirname)
 
 
 def process_module(proposal, run, module, pattern, dark_run, xgm_threshold):
@@ -11,11 +16,11 @@ def process_module(proposal, run, module, pattern, dark_run, xgm_threshold):
                        module=module, pattern=pattern)
 
     if dark_run == 0:
-        module.process_std(dirname='../../Shared/processed_runs_xgm')
+        module.process_std(dirname=dirname)
     else:
         module.process_normalised(dark_run=dark_run,
                                   xgm_threshold=xgm_threshold,
-                                  dirname='../../Shared/processed_runs_xgm')
+                                  dirname=dirname)
 
 
 if __name__ == '__main__':
