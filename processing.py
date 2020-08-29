@@ -11,7 +11,7 @@ def save_h5(data, dirname, filename):
 
     The file is saved as dirname/filename.
 
-    data (numpy.ndarray) - numpy array to be saved
+    data (dict) - {name: numpy array to be saved,...)
     dirname (str) - directory (will be created if it does not exist)
     filename (str) - should have extension .h5
 
@@ -22,7 +22,8 @@ def save_h5(data, dirname, filename):
 
     h5file = os.path.join(f'{dirname}', f'{filename}')
     with h5py.File(h5file, 'w') as f:
-        f.create_dataset('data', data=data)
+        for key, value in data.items():
+            f.create_dataset(key, data=value)
 
 
 def job_chunks(n_jobs, ntrains):
@@ -47,7 +48,7 @@ class Train:
     def __init__(self, data, pattern, xgm):
         self.pattern = np.array(pattern)
         self.xgm = xgm
-        
+
         # image.data might be missing
         try:
             self.data = data[list(data.keys())[0]]['image.data']
@@ -135,7 +136,7 @@ class XGM:
         str2 = 'data.intensitySa3TD'
         orun = ed.open_run(proposal=self.proposal,
                            run=self.run).select(str1, str2)
-        
+
         # Read data
         self.data = orun.get_array(str1, str2)
 
@@ -203,7 +204,7 @@ class Module:
         return Train(data=data, pattern=self.pattern,
                      xgm=self.xgm.train(index))
 
-    def process_frames(self, frame_type, train_indices=None, dirname=None):
+    def process_frames(self, frame_type, train_indices=None):
         """Sums frames of frame_type. Result is an average of frames.
 
         No normalisation is done here and it is used for processing dark runs.
@@ -212,6 +213,10 @@ class Module:
         train_indices - list of train indices to be summed.
                         If None, all trains are processed.
         dirname - if specified, data is saved as an HDF5 file in dirname.
+
+        The resulting numpy array has the shape:
+
+        (number of frame_type in the train, xdim, ydim)
 
         """
         # If train indices are not specified, all trains are processed.
@@ -225,10 +230,9 @@ class Module:
 
             # We iterate through all trains.
             for i in trains:
-                train = self.train(i)  # get train object
+                train = self.train(i)  # get the train object
 
-                # Train is valid if it contains image.data.
-                if train.valid:
+                if train.valid:  # Train is valid if it contains image.data.
                     trains_sum += train[frame_type].data
                     trains_num += 1
 
@@ -242,35 +246,32 @@ class Module:
         trains_sum = sum(list(zip(*res))[0])
         trains_num = sum(list(zip(*res))[1])
 
-        # Compute average.
-        trains_average = trains_sum / trains_num
+        # Compute average and squeeze to remove empty dimension.
+        trains_average = np.squeeze(trains_sum / trains_num)
 
-        # Save data if dirname is specified.
-        if dirname is not None:
-            dirname += f'/run_{self.run}/'
-            filename = f'module_{self.module}_{frame_type}.h5'
-            save_h5(trains_average, dirname, filename)
-        else:
-            return trains_average
+        return trains_average
 
     def process_std(self, train_indices=None, dirname=None):
         """Standard processing.
 
-        Result is: average(images) - average(darks).
+        Result is: average(images - darks), where subtraction
+        is performed per train.
 
         """
-        darks_average = self.process_frames(frame_type='darks', train_indices=train_indices)
-        images_average = self.process_frames(frame_type='images', train_indices=train_indices)
-
-        diff = images_average - darks_average
+        dark_average = self.process_frames(frame_type='dark',
+                                           train_indices=train_indices)
+        image_average = self.process_frames(frame_type='image',
+                                            train_indices=train_indices)
 
         # Save data if dirname is specified.
         if dirname is not None:
             dirname += f'/run_{self.run}/'
-            filename = f'module_{self.module}_diff.h5'
-            save_h5(diff, dirname, filename)
+            filename = f'module_{self.module}_std.h5'
+            data = {'dark_average': dark_average,
+                    'image_average': image_average}
+            save_h5(data, dirname, filename)
         else:
-            return diff
+            return dark_average, image_average
 
     def process_normalised(self, dark_run, train_indices=None, dirname=None):
         """Processing with normalisation.
@@ -333,10 +334,10 @@ class Module:
 
 def concat_module_images(dirname, run, image_type='normalised'):
     """Concatenate corrected module images to get one xarray for the whole detector
-    
+
     This function expects normalised images for all modules in a subdirectory of the
-    given basedirectory. 
-    
+    given basedirectory.
+
     dirname (str) - the base directory in which processed runs are stored
     run (int) - the run number
     image_type (str) - the type of images to use. Can be one of
