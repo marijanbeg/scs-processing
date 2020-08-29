@@ -263,7 +263,7 @@ class Module:
 
         # Second, we load image_average and dark_average for the dark run.
         filename = os.path.join('processed_runs_xgm', f'run_{dark_run}',
-                                f'module_{self.module}_diff.h5')
+                                f'module_{self.module}_std.h5')
         with h5py.File(filename, 'r') as f:
             dr_image_average = f['image_average'][:]
             dr_dark_average = f['dark_average'][:]
@@ -273,8 +273,8 @@ class Module:
 
         # This is the value we subtract from each image before we normalise it
         # with XGM value.
-        sval = dark_average + dr_diff
-
+        sval = dark_average + dr_diff        
+        
         def parallel_function(trains):
             # For details of the following code, please refer to the previous
             # function.
@@ -286,11 +286,11 @@ class Module:
 
                 if train.valid:
                     images = train['image']
-                    s = np.zeros((images.n, images[1], images[2]))
+                    s = np.zeros((images.n, images.data.shape[2], images.data.shape[3]))
                     for i in range(images.n):
-                        xgm = train.xgm[i]
+                        xgm = train.xgm[i].values
                         if xgm >= 1e-5:
-                            s[i, ...] = (images[i, ...] - sval[i, ...]) / xgm
+                            s[i, ...] = (images.data[i, ...] - sval[i, ...]) / xgm
 
                     trains_sum += s
                     trains_num += 1
@@ -304,7 +304,7 @@ class Module:
                                          for i in ranges)
 
         trains_sum = sum(list(zip(*res))[0])
-        trains_num = sum(list(zip(*res))[1])
+        trains_num = sum(list(zip(*res))[1])      
 
         # Compute the average of frames.
         trains_average = trains_sum / trains_num
