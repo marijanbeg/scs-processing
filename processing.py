@@ -175,16 +175,29 @@ class Container:
 
 class XGM:
     def __init__(self, proposal, run, module, pattern):
-        """Class used for extraction and using XGM data.
+        """Class used for extraction and manipulation of XGM data.
 
-        proposal (int)- proposal number
-        run (int) - run number
-        module (int) - module number (0-15)
-        pattern (list) - for instance:
-            'image', 'dark', 'image', 'dark', ... , 'end_image'
+        Parameters
+        ----------
+        proposal : int
 
-        Length of pattern list should be the same as the number of frames per
-        train.
+            Proposal number.
+
+        run : int
+
+            Run number.
+
+        module : int
+
+            Module number.
+
+        pattern : list
+
+            Pattern is a list of strings marking the type of each frame in the
+            train. For instance, `['image', 'dark', 'image', 'dark', ...,
+            'end_image']`. By convention, the last frame (image frame) in the
+            train is called `'end_image'` and it is nto processed because it
+            does not have its corresponding dark frame.
 
         """
         self.proposal = proposal
@@ -192,9 +205,11 @@ class XGM:
         self.module = module
         self.pattern = pattern
 
-        # Run object.
+        # Strings for getting XGM values from the data.
         str1 = 'SCS_BLU_XGM/XGM/DOOCS:output'
         str2 = 'data.intensitySa3TD'
+
+        # Run object.
         orun = ed.open_run(proposal=self.proposal,
                            run=self.run).select(str1, str2)
 
@@ -203,14 +218,35 @@ class XGM:
 
     @property
     def n(self):
-        """The number of XGM values.
+        """The number of meaningful XGM values.
 
-        It is the same as the number of images in pattern.
+        Returns
+        -------
+        int
+
+            This is the number of XGM values which correspond to particular
+            image frames. It is the same as the number of images in pattern.
 
         """
         return np.count_nonzero(np.array(self.pattern) == 'image')
 
     def train(self, index):
+        """Extract XGM data for an individual train.
+
+        Parameters
+        ----------
+        index
+
+            Index of the train (not its ID). For instance, 0, 1, 2, 3,...
+
+        Returns
+        -------
+        numpy.ndarray
+
+            An array of XGM values which contains the same number of elements
+            as the number of image frames.
+
+        """
         return self.data[index, 0:self.n]
 
 
@@ -218,14 +254,27 @@ class Module:
     def __init__(self, proposal, run, module, pattern):
         """Class used for processing individual modules.
 
-        proposal (int)- proposal number
-        run (int) - run number
-        module (int) - module number (0-15)
-        pattern (list) - for instance:
-            'image', 'dark', 'image', 'dark', ... , 'end_image'
+        Parameters
+        ----------
+        proposal : int
 
-        Length of pattern list should be the same as the number of frames per
-        train.
+            Proposal number.
+
+        run : int
+
+            Run number.
+
+        module : int
+
+            Module number.
+
+        pattern : list
+
+            Pattern is a list of strings marking the type of each frame in the
+            train. For instance, `['image', 'dark', 'image', 'dark', ...,
+            'end_image']`. By convention, the last frame (image frame) in the
+            train is called `'end_image'` and it is nto processed because it
+            does not have its corresponding dark frame.
 
         """
         self.proposal = proposal
