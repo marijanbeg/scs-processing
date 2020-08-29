@@ -214,7 +214,7 @@ class XGM:
                            run=self.run).select(str1, str2)
 
         # Read data
-        self.data = orun.get_array(str1, str2)
+        self._data = orun.get_array(str1, str2)
 
     @property
     def n(self):
@@ -247,8 +247,21 @@ class XGM:
             as the number of image frames.
 
         """
-        return self.data[index, 0:self.n]
+        return self._data[index, 0:self.n]
 
+    @property
+    def data(self):
+        """Returns all XGM per frame values for all trains.
+
+        Returns
+        -------
+        numpy.ndarray
+
+            XGM values across all trains.
+
+        """
+        return np.concatenate([self.train(i)
+                               for i in range(self._data.shape[0])], axis=0)
 
 class Module:
     def __init__(self, proposal, run, module, pattern):
