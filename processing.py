@@ -3,6 +3,7 @@ import h5py
 import joblib
 import numpy as np
 import extra_data as ed
+import xarray as xr
 
 
 def save_h5(data, dirname, filename):
@@ -327,10 +328,20 @@ class Module:
             return frames_average
 
 
-def concat_module_images(dirname, run):
+def concat_module_images(dirname, run, image_type='normalised'):
+    """Concatenate corrected module images to get one xarray for the whole detector
+    
+    This function expects normalised images for all modules in a subdirectory of the
+    given basedirectory. 
+    
+    dirname (str) - the base directory in which processed runs are stored
+    run (int) - the run number
+    image_type (str) - the type of images to use. Can be one of
+        'normalised', 'diff', 'image', 'dark'
+    """
     data = np.empty((16,128,512), dtype=np.float64)
     for module_number in range(16):
-        filename = os.path.join(dirname, f'run_{run}', f'module_{module_number}_normalised.h5')
+        filename = os.path.join(dirname, f'run_{run}', f'module_{module_number}_{image_type}.h5')
         with h5py.File(filename, 'r') as f:
             module_data = f['data'][:]
         data[module_number, ...] = np.squeeze(module_data)
