@@ -447,7 +447,8 @@ class Module:
         else:
             return dark_average, image_average
 
-    def process_normalised(self, dark_run, train_indices=None, dirname=None):
+    def process_normalised(self, dark_run, train_indices=None,
+                           xgm_threshold=(1e-5, np.inf), dirname=None):
         """Normalisation processing.
 
         This processing does the following:
@@ -514,8 +515,9 @@ class Module:
                                   images.data.shape[3]))
                     for i in range(images.n):
                         xgm = train.xgm[i].values
-                        if xgm >= 1e-5:
-                            s[i, ...] = (images.data[i, ...] - sval[i, ...]) / xgm
+                        if xgm_threshold[0] < xgm < xgm_threshold[1]:
+                            s[i, ...] = (images.data[i, ...] -
+                                         sval[i, ...]) / xgm
 
                     trains_sum += s
                     trains_num += 1
