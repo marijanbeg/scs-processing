@@ -1,20 +1,26 @@
 import argparse
-import processing as pr
+#import processing as pr
 
 
 proposal = 2530
 pattern = ['image', 'dark'] * 99 + ['end_image']
 
 
-def process_module(proposal, run, module, pattern, dark_run):
-    module = pr.Module(proposal=proposal, run=run, module=module, pattern=pattern)
-    
+def process_module(proposal, run, module, pattern, dark_run, xgm_threshold):
+    module = pr.Module(proposal=proposal, run=run,
+                       module=module, pattern=pattern)
+
     if dark_run == 0:
-        # Dark run
         module.process_std(dirname='../../Shared/processed_runs_xgm')
     else:
-        module.process_normalised(dark_run=dark_run, dirname='../../Shared/processed_runs_xgm')
+        module.process_normalised(dark_run=dark_run,
+                                  xgm_threshold=xgm_threshold,
+                                  dirname='../../Shared/processed_runs_xgm')
 
+
+def test(**kwargs):
+    for key, value in kwargs.items():
+        print(f'{key}, {value}, {type(value)}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -27,6 +33,22 @@ if __name__ == '__main__':
     parser.add_argument('--dark-run', metavar='S',
                         action='store',
                         help='dark run number')
+    parser.add_argument('--xgm-lower', metavar='S',
+                        action='store',
+                        help='lower XGM threshold')
+    parser.add_argument('--xgm-upper', metavar='S',
+                        action='store',
+                        help='upper XGM threshold')
     args = parser.parse_args()
 
-    process_module(proposal, int(args.run_number), int(args.module), pattern, int(args.dark_run))
+    # process_module(proposal, run=int(args.run_number),
+    #                module=int(args.module), pattern=pattern,
+    #                dark_run=int(args.dark_run),
+    #                xgm_threshold=(float(args.xgm_lower),
+    #                               float(args.xgm_upper)))
+
+    test(run=int(args.run_number),
+                   module=int(args.module), pattern=pattern,
+                   dark_run=int(args.dark_run),
+                   xgm_threshold=(float(args.xgm_lower),
+                                  float(args.xgm_upper)))
