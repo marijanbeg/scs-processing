@@ -66,10 +66,34 @@ def job_chunks(njobs, ntrains):
 
 class Train:
     def __init__(self, data, pattern, xgm):
+        """Class representing a single train in the run.
+
+        Parameters
+        ----------
+        data : train_data
+
+            Data obtained by using extra_data.
+
+        pattern : list
+
+            Pattern is a list of strings marking the type of each frame in the
+            train. For instance, `['image', 'dark', 'image', 'dark', ...,
+            'end_image']`. By convention, the last frame (image frame) in the
+            train is called `'end_image'` and it is nto processed because it
+            does not have its corresponding dark frame.
+
+        xgm : numpy.ndarray
+
+            Numpy array of length which is the same as the number of images in
+            the train. It contains XGM values, which can then be used for
+            normalisation.
+
+        """
         self.pattern = np.array(pattern)
         self.xgm = xgm
 
-        # image.data might be missing
+        # image.data might be missing. In that case None is assigned and later
+        # used for train validation.
         try:
             self.data = data[list(data.keys())[0]]['image.data']
         except:
@@ -77,29 +101,76 @@ class Train:
 
     @property
     def valid(self):
-        """If there is no data in train, False is returned. Otherwise, True."""
+        """Check whether train contains image.data.
+
+        Returns
+        -------
+        bool
+
+            `True` if train contains image.data, `False` otherwise.
+
+        """
         if self.data is not None:
             return True
         else:
             return False
 
     def __getitem__(self, frame_type):
-        return Container(self.data[self.pattern==frame_type, ...],
-                         xgm=self.xgm)
+        """Extracting frames of the same type as a `Container`.
+
+        Parameters
+        ----------
+        frame_type : str
+
+            It can be `'image'`, `'dark'`, or `'end_image'`.
+
+        Returns
+        -------
+        Container
+
+            Container containing only data for the frames of the same type.
+
+        """
+        return Container(self.data[self.pattern==frame_type, ...])
 
 
 class Container:
-    def __init__(self, data, xgm):
+    def __init__(self, data):
+        """Class for performing operations on frames of the same type.
+
+        Parameters
+        ----------
+        data : np.ndarray
+
+            Numpy array whose first dimension are individual frames.
+
+        """
         self.data = data
-        self.xgm = xgm
 
     @property
     def n(self):
-        """The number of frames in the container."""
+        """The number of frames in the container.
+
+        Returns
+        -------
+        int
+
+            The number of frames in the container.
+
+        """
         return self.data.shape[0]
 
     def __add__(self, other):
-        return self.__class__(data=self.data+other.data, xgm=None)
+        """Binary `+` operator.
+
+        Parameters
+        ----------
+        other : Container
+
+            Second operand.
+
+        """
+        return self.__class__(data=self.data+other.data)
 
 
 class XGM:
