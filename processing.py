@@ -94,9 +94,10 @@ class Container:
             frames_sum = 0
             frames_num = 0
             for frame in range(self.n):
-                # The value of XGM can be zero.
-                # This means that division would result in error or it can be very large, so that the final sum is corrupted.
-                # Marijan: I arbitrarily chose this small value (1e-5)
+                # The value of XGM can be zero. This means that division would
+                # result in error or it can be very large, so that the final
+                # sum is corrupted. Marijan: I arbitrarily chose this small
+                # value (1e-5)
                 if self.xgm[frame] > 1e-5:  # discard low reading of XGM
                     frame_value = self.data[frame, ...]  # frame values
                     xgm_value = self.xgm[frame].values  # value of XGM for an image frame
@@ -303,7 +304,7 @@ class Module:
 
         # This is the value we subtract from each image before we normalise it
         # with XGM value.
-        subtraction_value = dark_average + dr_diff
+        sval = dark_average + dr_diff
 
         def parallel_function(trains):
             # For details of the following code, please refer to the previous
@@ -315,8 +316,14 @@ class Module:
                 train = self.train(i)
 
                 if train.valid:
-                    trains_sum += ((train['image'] - subtraction_value) /
-                                   train.xgm)
+                    images = train['image']
+                    s = np.zeros((images.n, images[1], images[2]))
+                    for i in range(images.n):
+                        xgm = train.xgm[i]
+                        if xgm >= 1e-5:
+                            s[i, ...] = (images[i, ...] - sval[i, ...]) / xgm
+
+                    trains_sum += s
                     trains_num += 1
 
             return trains_sum, trains_num
