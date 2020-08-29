@@ -162,6 +162,10 @@ class Module:
         train_indices - indices of trains to be processed. If not specified, all trains in the run are summed.
         
         """
+        # If train indices are not specified, all trains are processed.
+        if train_indices is None:
+            train_indices = range(self.ntrains)
+        
         # First, we compute the average of darks (intradarks). No normalisation.
         darks_average = self.process_frames(frame_type='darks', train_indices=train_indices)
         
