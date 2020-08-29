@@ -11,7 +11,7 @@ def process_module(proposal, run, module, pattern, dark_run):
     
     if dark_run == 0:
         # Dark run
-        module.process_std(dirname='processed_runs_xgm')
+        module.process_std(dirname='../../Shared/processed_runs_xgm')
     else:
         module.process_normalised(dark_run=dark_run, dirname='../../Shared/processed_runs_xgm')
 
