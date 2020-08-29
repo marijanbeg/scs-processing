@@ -2,21 +2,35 @@ import os
 import h5py
 import joblib
 import numpy as np
-import extra_data as ed
 import xarray as xr
+import extra_data as ed
 
 
 def save_h5(data, dirname, filename):
     """Saves data in HDF5 file.
 
-    The file is saved as dirname/filename.
+    `data` is a dictionary whose keys are the names of datasets in HDF5 file
+    and values are numpy arrays. For multiple items in dictionary, multiple
+    datasets are saved. The file is saved as `dirname/filename` and filename
+    should have `.h5` extension. If the directory does not exist, it is going
+    to be created.
 
-    data (dict) - {name: numpy array to be saved,...)
-    dirname (str) - directory (will be created if it does not exist)
-    filename (str) - should have extension .h5
+    Parameters
+    ----------
+    data : dict
+
+        Dictionary whose keys are the names of datasets in HDF5 file
+        and values are numpy arrays.
+
+    dirname : str
+
+        Directory name.
+
+    filename : str
+
+        Name of the file which includes `.h5` extension.
 
     """
-
     if not os.path.exists(dirname):
         os.makedirs(dirname)
 
@@ -26,25 +40,31 @@ def save_h5(data, dirname, filename):
             f.create_dataset(key, data=value)
 
 
-def job_chunks(n_jobs, ntrains):
-    """Splitting ntrains to n_jobs.
+def job_chunks(njobs, ntrains):
+    """Function for splitting an array of trains into chunks for parallel
+    processing.
 
-    n_jobs (int) - how many cores are employed.
-    ntrains (int) - the total number of trains to be processed
+    Parameters
+    ----------
+    n_jobs : int
+
+        The number of jobs/threads.
+
+    ntrains : int
+
+        The number of trains to be processed.
 
     """
-    # Number of trains per process.
-    chunk = int(np.ceil(ntrains / n_jobs))
+    # The number of trains per process. The first njobs-1 will process chunk
+    # number of trains, whereas the last job is going to process the rest.
+    chunk = int(np.ceil(ntrains / njobs))
 
     total_range = range(ntrains)
-    ranges = [total_range[step:step + chunk]
-              for step in np.arange(ntrains, step=chunk)]
-
-    return ranges
+    return [total_range[step:step + chunk]
+            for step in np.arange(ntrains, step=chunk)]
 
 
 class Train:
-    """Class for processing individual trains."""
     def __init__(self, data, pattern, xgm):
         self.pattern = np.array(pattern)
         self.xgm = xgm
