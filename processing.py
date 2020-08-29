@@ -351,17 +351,28 @@ class Module:
                      xgm=self.xgm.train(index))
 
     def process_frames(self, frame_type, train_indices=None):
-        """Sums frames of frame_type. Result is an average of frames.
+        """This method computes the average of all frames trgough trains.
 
-        No normalisation is done here and it is used for processing dark runs.
+        More precisely, it computes the average frame 1 across all trains,
+        frame 2, frame 3, etc. No XGM normalisation is performed in this
+        method. It is used for processing dark frames, as well as the image
+        frames where normalisation is not important.
 
-        frame_type - 'image' or 'dark'
-        train_indices - list of train indices to be summed.
-                        If None, all trains are processed.
+        Parameters
+        ----------
+        frame_type : str
 
-        The resulting numpy array has the shape:
+            It can be `'image'`, `'dark'`, or `'end_image'`.
 
-        (number of frame_type in the train, xdim, ydim)
+        train_indices : list
+
+            If `None`, all trains in the run are processed.
+
+        Returns
+        -------
+        numpy.ndarray
+
+            Shape: (number of frame_type frames in the train, xdim, ydim)
 
         """
         # If train indices are not specified, all trains are processed.
@@ -370,12 +381,12 @@ class Module:
 
         # Function for parallel processing
         def parallel_function(trains):
-            trains_sum = 0  # sum of frames are added to it
-            trains_num = 0  # number of summed frames are added to it
+            trains_sum = 0  # accumulator for the sum of trains
+            trains_num = 0  # number of summed trains counter
 
             # We iterate through all trains.
             for i in trains:
-                train = self.train(i)  # get the train object
+                train = self.train(i)  # extract the train object
 
                 if train.valid:  # Train is valid if it contains image.data.
                     trains_sum += train[frame_type].data
@@ -383,16 +394,18 @@ class Module:
 
             return trains_sum, trains_num
 
-        n_jobs = 10  # number of cores - can be exposed later
-        ranges = job_chunks(n_jobs, len(train_indices))
+        n_jobs = 10  # number of cores - should be exposed later to the user
+        ranges = job_chunks(n_jobs, len(train_indices))  # distribute trains
 
+        # Run jobs in parallel. Default backend is used.
         res = joblib.Parallel(n_jobs=n_jobs)(
             joblib.delayed(parallel_function)(i) for i in ranges)
 
+        # Extract and sum results from individual jobs.
         trains_sum = sum(list(zip(*res))[0])
         trains_num = sum(list(zip(*res))[1])
 
-        # Compute average and squeeze to remove empty dimension.
+        # Compute average and "squeeze" to remove empty dimension.
         trains_average = np.squeeze(trains_sum / trains_num)
 
         return trains_average
@@ -400,8 +413,22 @@ class Module:
     def process_std(self, train_indices=None, dirname=None):
         """Standard processing.
 
-        Result is: average(images - darks), where subtraction
-        is performed per train.
+        This processing computes the average of all dark and image frames
+        across all trains. If `dirname` is provided, two numbpy arrays are
+        saved: `dark_average` and `image_average` to an HDF5. If
+        `train_indices` is `None`, all trains are computed.
+
+        Parameters
+        ----------
+        train_indices : list
+
+            List of trains to be processed. Defaults to `None`, in which case
+            all trains in the run are processed.
+
+        dirname : str
+
+            Directory name in which resulting HDF5 file is saved. Defaults to
+            `None` and result is returned instead of saved.
 
         """
         dark_average = self.process_frames(frame_type='dark',
@@ -420,13 +447,32 @@ class Module:
             return dark_average, image_average
 
     def process_normalised(self, dark_run, train_indices=None, dirname=None):
-        """Processing with normalisation.
+        """Normalisation processing.
 
-        dark_run - dark run number for which the data has already been
-                   processed (using process_std) and saved.
-        train_indices - indices of trains to be processed.
-                        If not specified, all trains in the run are summed.
-        dirname - if specified, data is saved as an HDF5 file in dirname.
+        This processing does the following:
+
+            1. It loads the results of an already processed dark run (RD). This
+            run was processed using `process_std`.
+
+            2. It computes the difference between image and dark averages ().
+
+
+         computes the average of all dark and image frames
+        across all trains. If `dirname` is provided, two numbpy arrays are
+        saved: `dark_average` and `image_average` to an HDF5. If
+        `train_indices` is `None`, all trains are computed.
+
+        Parameters
+        ----------
+        train_indices : list
+
+            List of trains to be processed. Defaults to `None`, in which case
+            all trains in the run are processed.
+
+        dirname : str
+
+            Directory name in which resulting HDF5 file is saved. Defaults to
+            `None` and result is returned instead of saved.
 
         """
         # If train indices are not specified, all trains are processed.
