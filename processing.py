@@ -10,9 +10,9 @@ def save_h5(data, dirname, filename):
 
     The file is saved as dirname/filename.
 
-    data - numpy array to be saved
-    dirname - directory (will be created if it does not exist)
-    filename - should have extension .h5
+    data (numpy.ndarray) - numpy array to be saved
+    dirname (str) - directory (will be created if it does not exist)
+    filename (str) - should have extension .h5
 
     """
 
@@ -27,8 +27,8 @@ def save_h5(data, dirname, filename):
 def job_chunks(n_jobs, ntrains):
     """Splitting ntrains to n_jobs.
 
-    n_jobs - how many cores are employed.
-    ntrains - the total number of trains to be processed
+    n_jobs (int) - how many cores are employed.
+    ntrains (int) - the total number of trains to be processed
 
     """
     # Number of trains per process.
@@ -42,15 +42,17 @@ def job_chunks(n_jobs, ntrains):
 
 
 class Module:
-    """Class used for processing individual modules."""
     def __init__(self, proposal, run, module, pattern):
-        """
-        proposal - proposal number
-        run - run number
-        module - module number (0-15)
-        pattern - for instance: 'image', 'dark', 'image', 'dark', ... , 'end_image'
+        """Class used for processing individual modules.
 
-        Length of pattern list should be the same as the number of frames per train.
+        proposal (int)- proposal number
+        run (int) - run number
+        module (int) - module number (0-15)
+        pattern (list) - for instance:
+            'image', 'dark', 'image', 'dark', ... , 'end_image'
+
+        Length of pattern list should be the same as the number of frames per
+        train.
 
         """
         self.proposal = proposal
@@ -58,23 +60,19 @@ class Module:
         self.module = module
         self.pattern = pattern
 
-        # Create run object.
-        self.orun = ed.open_run(proposal=proposal, run=run).select(self.selector, 'image.data')
+        # Run object.
+        self.orun = ed.open_run(proposal=proposal,
+                                run=run).select(self.selector, 'image.data')
 
     @property
     def selector(self):
-        """Device name for the analysed module"""
+        """Module's device name."""
         return f'SCS_DET_DSSC1M-1/DET/{self.module}CH0:xtdf'
-
-    @property
-    def train_ids(self):
-        """List of train_ids."""
-        return self.orun.train_ids
 
     @property
     def ntrains(self):
         """Number of trains in the run."""
-        return len(self.train_ids)
+        return len(self.orun.train_ids)
 
     @property
     def fpt(self):
