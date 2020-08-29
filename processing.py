@@ -44,14 +44,19 @@ def job_chunks(n_jobs, ntrains):
 class Train:
     """Class for processing individual trains."""
     def __init__(self, data, pattern, xgm):
-        self.data = data[list(data.keys())[0]]['image.data']
         self.pattern = np.array(pattern)
         self.xgm = xgm
+        
+        # image.data might be missing
+        try:
+            self.data = data[list(data.keys())[0]]['image.data']
+        except:
+            self.data = None
 
     @property
-    def __bool__(self):
+    def valid(self):
         """If there is no data in train, False is returned. Otherwise, True."""
-        if 'image.data' in self.data[self.selector].keys():
+        if self.data is not None:
             return True
         else:
             return False
@@ -129,11 +134,9 @@ class XGM:
         str2 = 'data.intensitySa3TD'
         orun = ed.open_run(proposal=self.proposal,
                            run=self.run).select(str1, str2)
-
-    @property
-    def data(self):
-        """XGM data for the entire run."""
-        return orun.get_array(str1, str2)
+        
+        # Read data
+        self.data = orun.get_array(str1, str2)
 
     @property
     def n(self):
@@ -142,7 +145,7 @@ class XGM:
         It is the same as the number of images in pattern.
 
         """
-        return np.count_nonzero(np.array(pattern) == 'image')
+        return np.count_nonzero(np.array(self.pattern) == 'image')
 
     def train(self, index):
         return self.data[index, 0:self.n]
@@ -224,7 +227,7 @@ class Module:
                 train = self.train(i)  # get train object
 
                 # Train is valid if it contains image.data.
-                if bool(train):
+                if train.valid:
                     trains_sum += train[frame_type].data
                     trains_num += 1
 
@@ -239,7 +242,7 @@ class Module:
         trains_num = sum(list(zip(*res))[1])
 
         # Compute average.
-        trains_average = trains_sum / frames_num
+        trains_average = trains_sum / trains_num
 
         # Save data if dirname is specified.
         if dirname is not None:
