@@ -542,7 +542,8 @@ class Module:
             return trains_average
 
 
-def concat_module_images(dirname, run, image_type='normalised'):
+def concat_module_images(dirname, run, run_type='normalised',
+                         image_type='normalised_average'):
     """Concatenate corrected module images to get one xarray for the whole
     detector
 
@@ -551,14 +552,16 @@ def concat_module_images(dirname, run, image_type='normalised'):
 
     dirname (str) - the base directory in which processed runs are stored
     run (int) - the run number
-    image_type (str) - the type of images to use. Can be one of
-        'normalised', 'diff', 'image', 'dark'
+    run_type (str) - the type of the run. Can be 'normalised' or 'diff'
+    image_type (str) - the type of images. Can be 'normalised_average' if run_type='normalised'
+        or 'image_agerage'/'dark_average' if run_type='diff'
     """
     data = None
+    dark_data = None
     for module_number in range(16):
-        filename = os.path.join(dirname, f'run_{run}', f'module_{module_number}_{image_type}.h5')
+        filename = os.path.join(dirname, f'run_{run}', f'module_{module_number}_{run_type}.h5')
         with h5py.File(filename, 'r') as f:
-            module_data = f['normalised_average'][:]
+            module_data = f[image_type][:]
         frames, x, y = module_data.shape
         if data is None:
                 data = np.zeros((frames, 16, x, y), dtype=np.float64)
