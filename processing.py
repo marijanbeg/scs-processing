@@ -340,6 +340,9 @@ class Module:
 
         """
         return self.orun.detector_info(self.selector)['frames_per_train']
+    
+    def nframes(self, frame_type):
+        return np.count_nonzero(np.array(self.pattern)==frame_type)
 
     def train(self, index):
         """Extracts Train object for the train with `index`.
@@ -391,12 +394,12 @@ class Module:
         # If train indices are not specified, all trains are processed.
         if train_indices is None:
             train_indices = range(self.ntrains)
-
+            
         # Function for parallel processing
         def parallel_function(trains):
-            ft_data = self.train(trains[0])[frame_type].data
-            trains_sum = np.zeros_like(ft_data, dtype='float64')  # accumulator for the sum of trains
-            trains_num = 0  # number of summed trains counter
+            trains_sum = np.zeros((self.nframes(frame_type), 1, 128, 512),
+                                  dtype='float64')
+            trains_num = 0
 
             # We iterate through all trains.
             for i in trains:
@@ -515,8 +518,8 @@ class Module:
         def parallel_function(trains):
             # For details of the following code, please refer to the previous
             # function.
-            ft_data = np.squeeze(self.train(trains[0])['image'].data)
-            trains_sum = np.zeros_like(ft_data, dtype='float64')  # accumulator for the sum of trains
+            trains_sum = np.zeros((self.nframes(frame_type), 1, 128, 512),
+                                  dtype='float64')
             trains_num = 0
 
             for i in trains:
