@@ -20,12 +20,10 @@ def save_h5(data, dirname, filename):
         
 def job_chunks(n_jobs, ntrains):
     chunk = int(np.ceil(ntrains / n_jobs))  # jobs per process
-
-    # A little bit messy splitting of the job into multiple runs
-    boundaries = np.arange(ntrains, step=chunk)
-    ranges = [range(boundaries[i], boundaries[i+1]) for i in range(n_jobs-1)]
-    ranges.append(range(boundaries[-1], ntrains))  # adjusting the last job
     
+    train_range = range(ntrains)
+    ranges = [train_range[step:step + chunk] for step in np.arange(ntrains, step=chunk)]
+
     return ranges
 
 
@@ -164,6 +162,10 @@ class Module:
         train_indices - indices of trains to be processed. If not specified, all trains in the run are summed.
         
         """
+        # If train indices are not specified, all trains are processed.
+        if train_indices is None:
+            train_indices = range(self.ntrains)
+        
         # First, we compute the average of darks (intradarks). No normalisation.
         darks_average = self.process_frames(frame_type='darks', train_indices=train_indices)
         
