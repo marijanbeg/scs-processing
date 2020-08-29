@@ -210,8 +210,8 @@ class Module:
         n_jobs = 10  # number of cores - can be exposed later
         ranges = job_chunks(n_jobs, len(train_indices))
 
-        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i)
-                                         for i in ranges)
+        res = joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(parallel_function)(i) for i in ranges)
 
         trains_sum = sum(list(zip(*res))[0])
         trains_num = sum(list(zip(*res))[1])
@@ -301,8 +301,8 @@ class Module:
         n_jobs = 10  # number of cores - can be exposed later
         ranges = job_chunks(n_jobs, len(train_indices))
 
-        res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i)
-                                         for i in ranges)
+        res = joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(parallel_function)(i) for i in ranges)
 
         trains_sum = sum(list(zip(*res))[0])
         trains_num = sum(list(zip(*res))[1])
