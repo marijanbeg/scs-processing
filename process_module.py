@@ -1,5 +1,5 @@
 import argparse
-#import processing as pr
+import processing as pr
 
 
 proposal = 2530
@@ -17,10 +17,6 @@ def process_module(proposal, run, module, pattern, dark_run, xgm_threshold):
                                   xgm_threshold=xgm_threshold,
                                   dirname='../../Shared/processed_runs_xgm')
 
-
-def test(**kwargs):
-    for key, value in kwargs.items():
-        print(f'{key}, {value}, {type(value)}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -41,13 +37,7 @@ if __name__ == '__main__':
                         help='upper XGM threshold')
     args = parser.parse_args()
 
-    # process_module(proposal, run=int(args.run_number),
-    #                module=int(args.module), pattern=pattern,
-    #                dark_run=int(args.dark_run),
-    #                xgm_threshold=(float(args.xgm_lower),
-    #                               float(args.xgm_upper)))
-
-    test(run=int(args.run_number),
+    process_module(proposal, run=int(args.run_number),
                    module=int(args.module), pattern=pattern,
                    dark_run=int(args.dark_run),
                    xgm_threshold=(float(args.xgm_lower),
