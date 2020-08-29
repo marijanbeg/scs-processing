@@ -81,37 +81,6 @@ class Container:
     def __add__(self, other):
         return self.__class__(data=self.data+other.data, xgm=None)
 
-    def process(self, normalised=True, subtraction_value=0):
-        """Sums all frames in the container and counts how many trains were added.
-
-        Returns a tuple: (sum of frames, number of summed frames)
-
-        normalised (bool) - If True, from each image subtraction_value is subtracted.
-                            The result is then divided by XGM value.
-
-        """
-        if normalised:
-            frames_sum = 0
-            frames_num = 0
-            for frame in range(self.n):
-                # The value of XGM can be zero. This means that division would
-                # result in error or it can be very large, so that the final
-                # sum is corrupted. Marijan: I arbitrarily chose this small
-                # value (1e-5)
-                if self.xgm[frame] > 1e-5:  # discard low reading of XGM
-                    frame_value = self.data[frame, ...]  # frame values
-                    xgm_value = self.xgm[frame].values  # value of XGM for an image frame
-
-                    frames_sum += (frame_value - subtraction_value) / xgm_value
-
-                    # One frame processed -> counter incremented.
-                    frames_num += 1
-
-            return frames_sum, frames_num
-        else:
-            # If no normalisation is required, simple sum is computed.
-            return np.sum(self.data, axis=0), self.n
-
 
 class XGM:
     def __init__(self, proposal, run, module, pattern):
