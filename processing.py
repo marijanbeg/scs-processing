@@ -216,41 +216,38 @@ class Module:
 
         # Function for parallel processing
         def parallel_function(trains):
-            frames_sum = 0  # sum of frames are added to it
-            frames_num = 0  # number of summed frames are added to it
+            trains_sum = 0  # sum of frames are added to it
+            trains_num = 0  # number of summed frames are added to it
 
             # We iterate through all trains.
             for i in trains:
                 train = self.train(i)  # get train object
 
                 # Train is valid if it contains image.data.
-                if train.valid:
-                    # Compute sum of frames and the number of summed frames.
-                    s, n = getattr(train, frame_type).process(normalised=False)
+                if bool(train):
+                    trains_sum += train[frame_type].data
+                    trains_num += 1
 
-                    frames_sum += s
-                    frames_num += n
-
-            return frames_sum, frames_num
+            return trains_sum, trains_num
 
         n_jobs = 10  # number of cores - can be exposed later
         ranges = job_chunks(n_jobs, len(train_indices))
 
         res = joblib.Parallel(n_jobs=10)(joblib.delayed(parallel_function)(i) for i in ranges)
 
-        frames_sum = sum(list(zip(*res))[0])
-        frames_num = sum(list(zip(*res))[1])
+        trains_sum = sum(list(zip(*res))[0])
+        trains_num = sum(list(zip(*res))[1])
 
         # Compute average.
-        frames_average = frames_sum / frames_num
+        trains_average = trains_sum / frames_num
 
         # Save data if dirname is specified.
         if dirname is not None:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_{frame_type}.h5'
-            save_h5(frames_average, dirname, filename)
+            save_h5(trains_average, dirname, filename)
         else:
-            return frames_average
+            return trains_average
 
     def process_std(self, train_indices=None, dirname=None):
         """Standard processing.
