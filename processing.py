@@ -385,38 +385,62 @@ class Module:
         return Train(data=data, pattern=self.pattern,
                      xgm=self.xgm.train(index))
 
-    def sum_frame(self, frame_type, trains, njobs=40):
-        """Sums all individual frame values."""
-        # If train indices are not specified, all trains are processed.
-        if trains is None:
-            trains = range(self.ntrains)
+#     def sum_frame(self, frame_type, trains, njobs=40):
+#         """Sums all individual frame values."""
+#         # If train indices are not specified, all trains are processed.
+#         if trains is None:
+#             trains = range(self.ntrains)
+            
+#         accumulator = np.zeros((len(trains), self.nframes(frame_type)),
+#                                dtype='float64')
 
-        # Function ran on an single thread.
-        def thread_func(chunk_number, job_trains):
-            accumulator = np.zeros((self.nframes(frame_type), len(job_trains)),
-                                   dtype='float64')
+#         # We iterate through all trains.
+#         for i, train_index in enumerate(trains):
+#             train = self.train(train_index)  # extract the train object
+#             if train.valid:  # Train is valid if it contains image.data.
+#                 accumulator[i, :] = np.sum(train[frame_type].data,
+#                                            axis=(1, 2, 3))
 
-            # We iterate through all trains.
-            for i in job_trains:
-                train = self.train(i)  # extract the train object
-                if train.valid:  # Train is valid if it contains image.data.
-                    accumulator[i, :] = np.sum(train[frame_type].data,
-                                               axis=(1, 2))
+        #return accumulator.reshape(1, -1) 
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+#         # Function ran on an single thread.
+#         def thread_func(job_trains):
+#             accumulator = np.zeros((self.nframes(frame_type), len(job_trains)),
+#                                    dtype='float64')
 
-            return chunk_number, accumulator.reshape(1, -1)
+#             # We iterate through all trains.
+#             for i in job_trains:
+#                 train = self.train(i)  # extract the train object
+#                 if train.valid:  # Train is valid if it contains image.data.
+#                     accumulator[i, :] = np.sum(train[frame_type].data,
+#                                                axis=(1, 2))
 
-        # Run jobs in parallel. Multiprocessing backend to preserve the order.
-        ranges = job_chunks(njobs, len(trains))  # distribute trains
-        res = joblib.Parallel(n_jobs=njobs, backend="multiprocessing")(
-            joblib.delayed(thread_func)(chunk_number, i)
-            for chunk_number, i in enumerate(ranges))
+#             return accumulator.reshape(1, -1)
 
-        # Extract and sum results from individual jobs.
-        total_sum = np.concatenate(list(zip(*res))[0], axis=None)
-        total_number = np.concatenate(list(zip(*res))[1], axis=None)
+#         # Run jobs in parallel. Multiprocessing backend to preserve the order.
+#         ranges = job_chunks(njobs, len(trains))  # distribute trains
+#         res = joblib.Parallel(n_jobs=njobs)(
+#             joblib.delayed(thread_func)(i) for i in ranges)
+
+#         # Extract and sum results from individual jobs.
+#         total_sum = np.concatenate(list(zip(*res))[0], axis=None)
+#         total_number = np.concatenate(list(zip(*res))[1], axis=None)
 
         # Compute average and "squeeze" to remove empty dimension.
-        return total_sum, total_number
+#         return accumulator.reshape(-1)
 
     def average_frame(self, frame_type, trains=None, njobs=40):
         """This method computes the average of all frames through trains.
@@ -589,10 +613,13 @@ class Module:
                     images = train[frames['image']]
                     s = np.zeros((images.n, 128, 512), dtype='float64')
                     for i in range(images.n):
-                        xgm = train.xgm[i].values
-                        if xgm_threshold[0] < xgm < xgm_threshold[1]:
-                            s[i, ...] = (images.data[i, ...] -
-                                         sval[i, ...]) / xgm
+                        try:
+                            xgm = train.xgm[i].values
+                            if xgm_threshold[0] < xgm < xgm_threshold[1]:
+                                s[i, ...] = (images.data[i, ...] -
+                                             sval[i, ...]) / xgm
+                        except:
+                               pass
 
                     accumulator += s
                     counter += 1
