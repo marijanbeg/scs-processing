@@ -263,6 +263,24 @@ class XGM:
         return np.concatenate([self.train(i)
                                for i in range(self._data.shape[0])], axis=0)
 
+# class PhaseShifter:
+#     def __init__(self, proposal, run, module, pattern):
+#         self.proposal = proposal
+#         self.run = run
+#         self.module = module
+#         self.pattern = pattern
+#
+#         # Strings for getting XGM values from the data.
+#         str1 = 'SCS_BLU_XGM/XGM/DOOCS:output'
+#         str2 = 'data.intensitySa3TD'
+#
+#         # Run object.
+#         orun = ed.open_run(proposal=self.proposal,
+#                            run=self.run).select(str1, str2)
+#
+#         # Read data
+#         self._data = orun.get_array(str1, str2)
+
 class Module:
     def __init__(self, proposal, run, module, pattern):
         """Class used for processing individual modules.
