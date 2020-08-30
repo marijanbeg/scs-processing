@@ -65,7 +65,7 @@ def job_chunks(njobs, trains):
 
 
 class Train:
-    def __init__(self, data, pattern, xgm):
+    def __init__(self, data, pattern):
         """Class representing a single train in the run.
 
         Parameters
@@ -90,7 +90,6 @@ class Train:
 
         """
         self.pattern = np.array(pattern)
-        self.xgm = xgm
 
         # image.data might be missing. In that case None is assigned and later
         # used for train validation.
@@ -214,54 +213,7 @@ class XGM:
                            run=self.run).select(str1, str2)
 
         # Read data
-        self._data = orun.get_array(str1, str2)
-
-    @property
-    def n(self):
-        """The number of meaningful XGM values.
-
-        Returns
-        -------
-        int
-
-            This is the number of XGM values which correspond to particular
-            image frames. It is the same as the number of images in pattern.
-
-        """
-        return np.count_nonzero(np.array(self.pattern) == 'image')
-
-    def train(self, index):
-        """Extract XGM data for an individual train.
-
-        Parameters
-        ----------
-        index
-
-            Index of the train (not its ID). For instance, 0, 1, 2, 3,...
-
-        Returns
-        -------
-        numpy.ndarray
-
-            An array of XGM values which contains the same number of elements
-            as the number of image frames.
-
-        """
-        return self._data[index, 0:self.n]
-
-    @property
-    def data(self):
-        """Returns all XGM per frame values for all trains.
-
-        Returns
-        -------
-        numpy.ndarray
-
-            XGM values across all trains.
-
-        """
-        return np.concatenate([self.train(i)
-                               for i in range(self._data.shape[0])], axis=0)
+        self.data = orun.get_array(str1, str2)
 
 # class PhaseShifter:
 #     def __init__(self, proposal, run, module, pattern):
@@ -382,13 +334,7 @@ class Module:
         """
         _, data = self.orun.train_from_index(index)
         
-        try:
-            return Train(data=data, pattern=self.pattern,
-                         xgm=self.xgm.train(index))
-        except IndexError:
-            return Train(data=None, pattern=self.pattern,
-                         xgm=None)
-        
+        return Train(data=data, pattern=self.pattern)
         
 
 #     def sum_frame(self, frame_type, trains, njobs=40):
@@ -590,7 +536,7 @@ class Module:
         if trains is None:
             trains = range(self.ntrains)
 
-        # First, we compute the average of darks (intradarks).
+        # First, we compute the average of darks.
         dark_average = self.average_frame(frame_type=frames['dark'],
                                           trains=trains, njobs=njobs)
 
@@ -606,33 +552,37 @@ class Module:
         # normalise it by XGM value.
         sval = dark_average + dark_run_diff
 
+                               
+        # For details of the following code, please refer to the previous
+        # function.
+        accumulator = np.zeros((self.nframes(frames['image']), 128, 512),
+                               dtype='float64')
+        counter = 0
+                               
+        reduced_pattern = [i for i in self.pattern if 'dark' not in i]
+             
         def thread_func(job_trains):
-            # For details of the following code, please refer to the previous
-            # function.
-            accumulator = np.zeros((self.nframes('image'), 128, 512),
+            accumulator = np.zeros((self.nframes(frames['image']), 128, 512),
                                    dtype='float64')
-            counter = 0
-
+            counter = 0                   
+                               
             for i in job_trains:
                 train = self.train(i)
+
+                reduced_xgm = self.xgm.data[i, 0:len(reduced_pattern)]
+                xgm_values = reduced_xgm[np.array(reduced_pattern) == frames['image']]
+
                 if train.valid:
                     images = train[frames['image']]
                     s = np.zeros((images.n, 128, 512), dtype='float64')
-                    for i in range(images.n):
-                        try:
-                            xgm = train.xgm[i].values
-                            if xgm_threshold[0] < xgm < xgm_threshold[1]:
-                                s[i, ...] = (images.data[i, ...] -
-                                             sval[i, ...]) / xgm
-                        except:
-                               pass
+                    for j in range(images.n):
+                        if xgm_threshold[0] < xgm_values[j] < xgm_threshold[1]:                               
+                            s[j, ...] = (np.squeeze(images.data[j, ...]) -
+                                         sval[j, ...]) / xgm_values[j].values
 
-                    try:
-                        accumulator += s
-                        counter += 1
-                    except:
-                        pass
-
+                    accumulator += s
+                    counter += 1  
+                               
             return accumulator, counter
 
         ranges = job_chunks(njobs, trains)
