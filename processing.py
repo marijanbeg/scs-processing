@@ -65,7 +65,7 @@ def job_chunks(njobs, trains):
 
 
 class Train:
-    def __init__(self, data, pattern):
+    def __init__(self, data, train_id, pattern):
         """Class representing a single train in the run.
 
         Parameters
@@ -97,6 +97,8 @@ class Train:
             self.data = data[list(data.keys())[0]]['image.data']
         except:
             self.data = None
+            
+        self.train_id = train_id
 
     @property
     def valid(self):
@@ -332,9 +334,9 @@ class Module:
             Train object.
 
         """
-        _, data = self.orun.train_from_index(index)
+        train_id, data = self.orun.train_from_index(index)
         
-        return Train(data=data, pattern=self.pattern)
+        return Train(data=data, train_id=train_id, pattern=self.pattern)
         
 
 #     def sum_frame(self, frame_type, trains, njobs=40):
@@ -569,7 +571,7 @@ class Module:
             for i in job_trains:
                 train = self.train(i)
 
-                reduced_xgm = self.xgm.data[i, 0:len(reduced_pattern)]
+                reduced_xgm = self.xgm.data.sel(trainId=train.train_id)[0:len(reduced_pattern)]
                 xgm_values = reduced_xgm[np.array(reduced_pattern) == frames['image']]
 
                 if train.valid:
