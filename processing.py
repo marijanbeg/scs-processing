@@ -612,3 +612,28 @@ def concat_module_images(dirname, run, run_type='normalised',
     return xr.DataArray(data, dims=('frame', 'module', 'x', 'y'),
                         coords={'frame': range(frames), 'module': range(16),
                                 'x': range(1, x + 1), 'y': range(1, y + 1)})
+
+
+def standard_run(proposal, run, module, pattern, dirname):
+    """High-level function for processing a run with 'standard processing'"""
+    module = Module(proposal=proposal, run=run, module=module, pattern=pattern)
+    module.process_std(dirname=dirname)
+
+
+def normalised_run(proposal, run, module, pattern,
+                   dark_run, xgm_threshold, dirname):
+    """High-level function for processing a run with 'normalised processing'"""
+    module = Module(proposal=proposal, run=run, module=module, pattern=pattern)
+    module.process_normalised(dark_run=dark_run, xgm_threshold=xgm_threshold,
+                              dirname=dirname)
+
+
+def pump_probe_run(proposal, run, module, pattern, dirname):
+    """High-level function for processing pump-probe runs"""
+    pass
+
+
+def xgm_run(proposal, run, module, pattern, dirname):
+    """High-level function for processing xgm and integrated intensities"""
+    pass
+    
