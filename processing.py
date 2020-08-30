@@ -340,7 +340,7 @@ class Module:
 
         """
         return self.orun.detector_info(self.selector)['frames_per_train']
-    
+
     def nframes(self, frame_type):
         return np.count_nonzero(np.array(self.pattern)==frame_type)
 
@@ -366,23 +366,23 @@ class Module:
         return Train(data=data, pattern=self.pattern,
                      xgm=self.xgm.train(index))
 
-    def process_frames(self, frame_type, train_indices=None):
-        """This method computes the average of all frames trgough trains.
-
-        More precisely, it computes the average frame 1 across all trains,
-        frame 2, frame 3, etc. No XGM normalisation is performed in this
-        method. It is used for processing dark frames, as well as the image
-        frames where normalisation is not important.
+    def average_frame(self, frame_type, trains=None, njobs=10):
+        """This method computes the average of all frames through trains.
 
         Parameters
         ----------
         frame_type : str
 
-            It can be `'image'`, `'dark'`, or `'end_image'`.
+            It can be any of the frame types passed in pattern.
 
-        train_indices : list
+        trains : array_like
 
-            If `None`, all trains in the run are processed.
+            Indices of trains to be processed. If `None`, all trains in the run
+            are processed. Defaults to 'None'.
+
+        njobs : int
+
+            The number of jobs in parallel processing. Defaults to 10.
 
         Returns
         -------
@@ -392,55 +392,55 @@ class Module:
 
         """
         # If train indices are not specified, all trains are processed.
-        if train_indices is None:
-            train_indices = range(self.ntrains)
-            
-        # Function for parallel processing
-        def parallel_function(trains):
-            trains_sum = np.zeros((self.nframes(frame_type), 1, 128, 512),
-                                  dtype='float64')
-            trains_num = 0
+        if trains is None:
+            trains = range(self.ntrains)
+
+        # Function ran on an single thread.
+        def thread_func(job_trains):
+            accumulator = np.zeros((self.nframes(frame_type), 1, 128, 512),
+                                   dtype='float64')
+            counter = 0
 
             # We iterate through all trains.
-            for i in trains:
+            for i in job_trains:
                 train = self.train(i)  # extract the train object
-
                 if train.valid:  # Train is valid if it contains image.data.
-                    trains_sum += train[frame_type].data
-                    trains_num += 1
+                    accumulator += train[frame_type].data
+                    counter += 1
 
-            return trains_sum, trains_num
+            return accumulator, counter
 
-        n_jobs = 10  # number of cores - should be exposed later to the user
-        ranges = job_chunks(n_jobs, len(train_indices))  # distribute trains
-
-        # Run jobs in parallel. Default backend is used.
-        res = joblib.Parallel(n_jobs=n_jobs)(
-            joblib.delayed(parallel_function)(i) for i in ranges)
+        # Run jobs in parallel. Default backend is used at the moment.
+        ranges = job_chunks(njobs, len(trains))  # distribute trains
+        res = joblib.Parallel(n_jobs=njobs)(
+            joblib.delayed(thread_func)(i) for i in ranges)
 
         # Extract and sum results from individual jobs.
-        trains_sum = sum(list(zip(*res))[0])
-        trains_num = sum(list(zip(*res))[1])
+        total_sum = sum(list(zip(*res))[0])
+        total_number = sum(list(zip(*res))[1])
 
         # Compute average and "squeeze" to remove empty dimension.
-        trains_average = np.squeeze(trains_sum / trains_num)
+        return np.squeeze(total_sum / total_number)
 
-        return trains_average
-
-    def process_std(self, train_indices=None, dirname=None):
+    def process_std(self, frame_types=None, trains=None, njobs=10,
+                    dirname=None):
         """Standard processing.
-
-        This processing computes the average of all dark and image frames
-        across all trains. If `dirname` is provided, two numbpy arrays are
-        saved: `dark_average` and `image_average` to an HDF5. If
-        `train_indices` is `None`, all trains are computed.
 
         Parameters
         ----------
-        train_indices : list
+        frame_types : array_like
+
+            A list of unique frame types to be processed. If `None` all frame
+            types present in the pattern will be processed. Deafults to `None`.
+
+        trains : list
 
             List of trains to be processed. Defaults to `None`, in which case
             all trains in the run are processed.
+
+        njobs : int
+
+            The number of jobs in parallel processing. Defaults to 10.
 
         dirname : str
 
@@ -448,20 +448,26 @@ class Module:
             `None` and result is returned instead of saved.
 
         """
-        dark_average = self.process_frames(frame_type='dark',
-                                           train_indices=train_indices)
-        image_average = self.process_frames(frame_type='image',
-                                            train_indices=train_indices)
+        if frame_types is None:
+            frame_types = set(self.pattern)
+
+        if trains is None:
+            trains = range(self.ntrains)
+
+        averaged_frames = {}
+        for frame_type in frame_types:
+            key = f'{frame_type}_average'
+            averaged_frames[key] = self.average_frame(frame_type,
+                                                      trains=trains,
+                                                      njobs=njobs)
 
         # Save data if dirname is specified.
         if dirname is not None:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_std.h5'
-            data = {'dark_average': dark_average,
-                    'image_average': image_average}
-            save_h5(data, dirname, filename)
+            save_h5(averaged_frames, dirname, filename)
         else:
-            return dark_average, image_average
+            return averaged_frames
 
     def process_normalised(self, dark_run, train_indices=None,
                            xgm_threshold=(1e-5, np.inf), dirname=None):
