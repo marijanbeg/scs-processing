@@ -382,8 +382,15 @@ class Module:
 
         """
         _, data = self.orun.train_from_index(index)
-        return Train(data=data, pattern=self.pattern,
-                     xgm=self.xgm.train(index))
+        
+        try:
+            return Train(data=data, pattern=self.pattern,
+                         xgm=self.xgm.train(index))
+        except IndexError:
+            return Train(data=None, pattern=self.pattern,
+                         xgm=None)
+        
+        
 
 #     def sum_frame(self, frame_type, trains, njobs=40):
 #         """Sums all individual frame values."""
@@ -621,8 +628,11 @@ class Module:
                         except:
                                pass
 
-                    accumulator += s
-                    counter += 1
+                    try:
+                        accumulator += s
+                        counter += 1
+                    except:
+                        pass
 
             return accumulator, counter
 
