@@ -484,16 +484,16 @@ class Module:
 
         return averaged_frames
 
-    def process_normalised(self,
-                           dark_run,
-                           frames={'image': 'image',
-                                   'dark': 'dark'},
-                           dark_run_frames={'image': 'image',
-                                            'dark': 'dark'},
-                           trains=None,
-                           xgm_threshold=(1e-5, np.inf),
-                           njobs=40,
-                           dirname=None):
+    def process_norm(self,
+                     dark_run,
+                     frames={'image': 'image',
+                             'dark': 'dark'},
+                     dark_run_frames={'image': 'image',
+                                      'dark': 'dark'},
+                     trains=None,
+                     xgm_threshold=(1e-5, np.inf),
+                     njobs=40,
+                     dirname=None):
         """Normalisation processing.
 
         This processing does the following:
@@ -527,16 +527,16 @@ class Module:
             trains = range(self.ntrains)
 
         # First, we compute the average of darks (intradarks).
-        dark_average = self.average_frames(frame_type=frames['dark'],
-                                           trains=trains, njobs=njobs)
+        dark_average = self.average_frame(frame_type=frames['dark'],
+                                          trains=trains, njobs=njobs)
 
         # Second, we load image_average and dark_average for the dark run and
         # compute their difference.
         filename = os.path.join(dirname, f'run_{dark_run}',
                                 f'module_{self.module}_std.h5')
         with h5py.File(filename, 'r') as f:
-            dark_run_diff = (f[f'{dark_run_frames['image']}_average'][:] -
-                             f[f'{dark_run_frames['dark']}_average'][:])
+            dark_run_diff = (f[f'{dark_run_frames["image"]}_average'][:] -
+                             f[f'{dark_run_frames["dark"]}_average'][:])
 
         # This is the value we subtract from each image frame before we
         # normalise it by XGM value.
@@ -565,7 +565,7 @@ class Module:
 
             return accumulator, counter
 
-        ranges = job_chunks(njobs, len(train_indices))
+        ranges = job_chunks(njobs, len(trains))
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
 
@@ -580,7 +580,7 @@ class Module:
         if dirname is not None:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_norm.h5'
-            save_h5({f'{frames['image']}_average': average}, dirname, filename)
+            save_h5({f'{frames["image"]}_average': average}, dirname, filename)
 
         return average
 
