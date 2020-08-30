@@ -4,7 +4,8 @@ import joblib
 import numpy as np
 import xarray as xr
 import extra_data as ed
-
+import subprocess as sp
+import time
 
 def save_h5(data, dirname, filename):
     """Saves data in HDF5 file.
@@ -517,16 +518,16 @@ class Module:
 
         return averaged_frames
 
-    def process_normalised(self,
-                           dark_run,
-                           frames={'image': 'image',
-                                   'dark': 'dark'},
-                           dark_run_frames={'image': 'image',
-                                            'dark': 'dark'},
-                           trains=None,
-                           xgm_threshold=(1e-5, np.inf),
-                           njobs=40,
-                           dirname=None):
+    def process_norm(self,
+                     dark_run,
+                     frames={'image': 'image',
+                             'dark': 'dark'},
+                     dark_run_frames={'image': 'image',
+                                      'dark': 'dark'},
+                     trains=None,
+                     xgm_threshold=(1e-5, np.inf),
+                     njobs=40,
+                     dirname=None):
         """Normalisation processing.
 
         This processing does the following:
@@ -560,16 +561,16 @@ class Module:
             trains = range(self.ntrains)
 
         # First, we compute the average of darks (intradarks).
-        dark_average = self.average_frames(frame_type=frames['dark'],
-                                           trains=trains, njobs=njobs)
+        dark_average = self.average_frame(frame_type=frames['dark'],
+                                          trains=trains, njobs=njobs)
 
         # Second, we load image_average and dark_average for the dark run and
         # compute their difference.
         filename = os.path.join(dirname, f'run_{dark_run}',
                                 f'module_{self.module}_std.h5')
         with h5py.File(filename, 'r') as f:
-            dark_run_diff = (f[f'{dark_run_frames['image']}_average'][:] -
-                             f[f'{dark_run_frames['dark']}_average'][:])
+            dark_run_diff = (f[f'{dark_run_frames["image"]}_average'][:] -
+                             f[f'{dark_run_frames["dark"]}_average'][:])
 
         # This is the value we subtract from each image frame before we
         # normalise it by XGM value.
@@ -598,7 +599,7 @@ class Module:
 
             return accumulator, counter
 
-        ranges = job_chunks(njobs, len(train_indices))
+        ranges = job_chunks(njobs, len(trains))
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
 
@@ -613,7 +614,7 @@ class Module:
         if dirname is not None:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_norm.h5'
-            save_h5({f'{frames['image']}_average': average}, dirname, filename)
+            save_h5({f'{frames["image"]}_average': average}, dirname, filename)
 
         return average
 
@@ -647,61 +648,50 @@ def concat_module_images(dirname, run, run_type='normalised',
                                 'x': range(1, x + 1), 'y': range(1, y + 1)})
 
 
-def reduction_std(proposal, run, module, pattern,
-                  frame_types=None, trains=None, njobs=10, dirname=None):
+def reduction_std(proposal, run, pattern, dirname=None,
+                  frame_types=None, trains=None, njobs=40):
     script = ('import processing as pr\n'
               f'module = pr.Module(proposal={proposal}, run={run},'
-              f' module={module}, pattern={pattern})\n'
+              f' module=MODULE, pattern={pattern})\n'
               f'module.process_std(frame_types={frame_types}, trains={trains},'
-              f' njobs={njobs}, dirname={dirname})\n'
-             )
-    submit_jobs(script)
+              f' njobs={njobs}, dirname="{dirname}")\n')
+    _submit_jobs(script)
+
+    
+def reduction_norm(proposal, run, pattern, dark_run, dirname=None,
+                   frames={'image': 'image',
+                           'dark': 'dark'},
+                   dark_run_frames={'image': 'image',
+                                    'dark': 'dark'},
+                   trains=None, xgm_threshold=(1e-5, np.inf), njobs=40):
+    script = ('import processing as pr\n'
+              f'module = pr.Module(proposal={proposal}, run={run},'
+              f' module=MODULE, pattern={pattern})\n'
+              f'module.process_normalised(dark_run={dark_run}, '
+              f'frames={frames}, dark_run_frames={dark_run_frames}, '
+              f'trains={trains}, xgm_threshold={xgm_threshold}, '
+              f'njobs={njobs}, dirname="{dirname}")')
+    _submit_jobs(script)
 
 
-def reduction_norm():
-    pass
-
-
-def submit_jobs(py_script, slurm_dir='slurm_log', module_range=range(16)):
+def _submit_jobs(py_script, slurm_dir='slurm_log', module_range=range(16)):
     if not os.path.exists(slurm_dir):
         os.makedirs(slurm_dir)
-    file_name = f'run_{time.time()}'
-    with open(f'{file_name}.py', 'w') as f:
-        f.write(script)
     for module in module_range:
+        file_name = f'run_{time.time()}_module{module}'
         process_sh = ('#!/bin/bash\n'
                       'source /usr/share/Modules/init/bash\n'
                       'module load exfel\n'
                       'module load exfel_anaconda3/1.1\n'
-                      f'python3 {file_name}.py'
-                     )
-        with open(f'{file_name}_module{module}.sh', 'w') as f:
+                      f'python3 {file_name}.py')
+        
+        with open(f'{file_name}.py', 'w') as f:
+            f.write(py_script.replace('MODULE', str(module)))
+
+        with open(f'{file_name}.sh', 'w') as f:
             f.write(process_sh)
+        
         command = ['sbatch', '-p', 'upex', '-t', '100', '-o',
                    f'{slurm_dir}/slurm-%A.out', f'{file_name}.sh']
+        
         sp.run(command)
-
-
-# REMOVE
-def standard_run(proposal, run, module, pattern, dirname):
-    """High-level function for processing a run with 'standard processing'"""
-    module = Module(proposal=proposal, run=run, module=module, pattern=pattern)
-    module.process_std(dirname=dirname)
-
-
-def normalised_run(proposal, run, module, pattern,
-                   dark_run, xgm_threshold, dirname):
-    """High-level function for processing a run with 'normalised processing'"""
-    module = Module(proposal=proposal, run=run, module=module, pattern=pattern)
-    module.process_normalised(dark_run=dark_run, xgm_threshold=xgm_threshold,
-                              dirname=dirname)
-
-
-def pump_probe_run(proposal, run, module, pattern, dirname):
-    """High-level function for processing pump-probe runs"""
-    pass
-
-
-def xgm_run(proposal, run, module, pattern, dirname):
-    """High-level function for processing xgm and integrated intensities"""
-    pass
