@@ -687,6 +687,7 @@ def _submit_jobs(py_script, slurm_dir='slurm_log', module_range=range(16)):
         os.makedirs(script_dir)
     if not os.path.exists(slurm_dir):
         os.makedirs(slurm_dir)
+    counter = 0
     for module in module_range:
         file_name = f'run_{time.time()}_module{module}'
         process_sh = ('#!/bin/bash\n'
@@ -703,4 +704,7 @@ def _submit_jobs(py_script, slurm_dir='slurm_log', module_range=range(16)):
         command = ['sbatch', '-p', 'upex', '-t', '100',
                    '--chdir', f'{script_dir}',
                    '-o', f'../{slurm_dir}/slurm-%A.out', f'{file_name}.sh']
-        sp.run(command)
+        res = sp.run(command, stdout=sp.PIPE)
+        # print(res.stdout.decode('utf-8', 'replace'))
+        counter += 1
+    print(f'Submitted {counter} slurm jobs to the queue.')
