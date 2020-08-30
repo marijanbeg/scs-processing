@@ -384,7 +384,7 @@ class Module:
         return Train(data=data, pattern=self.pattern,
                      xgm=self.xgm.train(index))
 
-    def average_frame(self, frame_type, trains=None, njobs=10):
+    def average_frame(self, frame_type, trains=None, njobs=40):
         """This method computes the average of all frames through trains.
 
         Parameters
@@ -440,7 +440,7 @@ class Module:
         # Compute average and "squeeze" to remove empty dimension.
         return np.squeeze(total_sum / total_number)
 
-    def process_std(self, frame_types=None, trains=None, njobs=10,
+    def process_std(self, frame_types=None, trains=None, njobs=40,
                     dirname=None):
         """Standard processing.
 
@@ -481,8 +481,8 @@ class Module:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_std.h5'
             save_h5(averaged_frames, dirname, filename)
-        else:
-            return averaged_frames
+
+        return averaged_frames
 
     def process_normalised(self,
                            dark_run,
@@ -492,7 +492,7 @@ class Module:
                                             'dark': 'dark'},
                            trains=None,
                            xgm_threshold=(1e-5, np.inf),
-                           njobs=10,
+                           njobs=40,
                            dirname=None):
         """Normalisation processing.
 
@@ -527,7 +527,7 @@ class Module:
             trains = range(self.ntrains)
 
         # First, we compute the average of darks (intradarks).
-        dark_average = self.average_frames(frame_type=dark_frame,
+        dark_average = self.average_frames(frame_type=frames['dark'],
                                            trains=trains, njobs=njobs)
 
         # Second, we load image_average and dark_average for the dark run and
@@ -553,7 +553,7 @@ class Module:
                 train = self.train(i)
                 if train.valid:
                     images = train[frames['image']]
-                    s = np.zeros((images.n, 128, 512))
+                    s = np.zeros((images.n, 128, 512), dtype='float64')
                     for i in range(images.n):
                         xgm = train.xgm[i].values
                         if xgm_threshold[0] < xgm < xgm_threshold[1]:
@@ -563,7 +563,7 @@ class Module:
                     accumulator += s
                     counter += 1
 
-            return return accumulator, counter
+            return accumulator, counter
 
         ranges = job_chunks(njobs, len(train_indices))
         res = joblib.Parallel(n_jobs=njobs)(
@@ -581,8 +581,8 @@ class Module:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_norm.h5'
             save_h5({f'{frames['image']}_average': average}, dirname, filename)
-        else:
-            return average
+
+        return average
 
 
 def concat_module_images(dirname, run, run_type='normalised',
@@ -636,4 +636,3 @@ def pump_probe_run(proposal, run, module, pattern, dirname):
 def xgm_run(proposal, run, module, pattern, dirname):
     """High-level function for processing xgm and integrated intensities"""
     pass
-    
