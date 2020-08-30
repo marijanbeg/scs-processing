@@ -518,7 +518,7 @@ class Module:
         def parallel_function(trains):
             # For details of the following code, please refer to the previous
             # function.
-            trains_sum = np.zeros((self.nframes(frame_type), 1, 128, 512),
+            trains_sum = np.zeros((self.nframes('image'), 128, 512),
                                   dtype='float64')
             trains_num = 0
 
