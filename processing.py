@@ -41,7 +41,7 @@ def save_h5(data, dirname, filename):
             f.create_dataset(key, data=value)
 
 
-def job_chunks(njobs, ntrains):
+def job_chunks(njobs, trains):
     """Function for splitting an array of trains into chunks for parallel
     processing.
 
@@ -51,18 +51,17 @@ def job_chunks(njobs, ntrains):
 
         The number of jobs/threads.
 
-    ntrains : int
+    trains : list
 
-        The number of trains to be processed.
+        List of trains to be processed.
 
     """
     # The number of trains per process. The first njobs-1 will process chunk
     # number of trains, whereas the last job is going to process the rest.
-    chunk = int(np.ceil(ntrains / njobs))
+    chunk = int(np.ceil(len(trains) / njobs))
 
-    total_range = range(ntrains)
-    return [total_range[step:step + chunk]
-            for step in np.arange(ntrains, step=chunk)]
+    return [trains[step:step + chunk]
+            for step in np.arange(len(trains), step=chunk)]
 
 
 class Train:
@@ -438,7 +437,7 @@ class Module:
 #             return accumulator.reshape(1, -1)
 
 #         # Run jobs in parallel. Multiprocessing backend to preserve the order.
-#         ranges = job_chunks(njobs, len(trains))  # distribute trains
+#         ranges = job_chunks(njobs, trains)  # distribute trains
 #         res = joblib.Parallel(n_jobs=njobs)(
 #             joblib.delayed(thread_func)(i) for i in ranges)
 
@@ -494,7 +493,7 @@ class Module:
             return accumulator, counter
 
         # Run jobs in parallel. Default backend is used at the moment.
-        ranges = job_chunks(njobs, len(trains))  # distribute trains
+        ranges = job_chunks(njobs, trains)  # distribute trains
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
 
@@ -636,7 +635,7 @@ class Module:
 
             return accumulator, counter
 
-        ranges = job_chunks(njobs, len(trains))
+        ranges = job_chunks(njobs, trains)
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
 
