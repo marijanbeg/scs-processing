@@ -385,7 +385,7 @@ class Module:
         return Train(data=data, pattern=self.pattern,
                      xgm=self.xgm.train(index))
 
-    def sum_frames(self, frame_type, trains, njobs=40):
+    def sum_frame(self, frame_type, trains, njobs=40):
         """Sums all individual frame values."""
         # If train indices are not specified, all trains are processed.
         if trains is None:
@@ -657,7 +657,7 @@ def reduction_std(proposal, run, pattern, dirname=None,
               f' njobs={njobs}, dirname="{dirname}")\n')
     _submit_jobs(script)
 
-    
+
 def reduction_norm(proposal, run, pattern, dark_run, dirname=None,
                    frames={'image': 'image',
                            'dark': 'dark'},
@@ -684,14 +684,14 @@ def _submit_jobs(py_script, slurm_dir='slurm_log', module_range=range(16)):
                       'module load exfel\n'
                       'module load exfel_anaconda3/1.1\n'
                       f'python3 {file_name}.py')
-        
+
         with open(f'{file_name}.py', 'w') as f:
             f.write(py_script.replace('MODULE', str(module)))
 
         with open(f'{file_name}.sh', 'w') as f:
             f.write(process_sh)
-        
+
         command = ['sbatch', '-p', 'upex', '-t', '100', '-o',
                    f'{slurm_dir}/slurm-%A.out', f'{file_name}.sh']
-        
+
         sp.run(command)
