@@ -571,19 +571,20 @@ class Module:
             for i in job_trains:
                 train = self.train(i)
 
-                reduced_xgm = self.xgm.data.sel(trainId=train.train_id)[0:len(reduced_pattern)]
-                xgm_values = reduced_xgm[np.array(reduced_pattern) == frames['image']]
+                if train.train_id in self.xgm.data.coords['trainId']:
+                    reduced_xgm = self.xgm.data.sel(trainId=train.train_id)[0:len(reduced_pattern)]
+                    xgm_values = reduced_xgm[np.array(reduced_pattern) == frames['image']]
 
-                if train.valid:
-                    images = train[frames['image']]
-                    s = np.zeros((images.n, 128, 512), dtype='float64')
-                    for j in range(images.n):
-                        if xgm_threshold[0] < xgm_values[j] < xgm_threshold[1]:                               
-                            s[j, ...] = (np.squeeze(images.data[j, ...]) -
-                                         sval[j, ...]) / xgm_values[j].values
+                    if train.valid:
+                        images = train[frames['image']]
+                        s = np.zeros((images.n, 128, 512), dtype='float64')
+                        for j in range(images.n):
+                            if xgm_threshold[0] < xgm_values[j] < xgm_threshold[1]:                               
+                                s[j, ...] = (np.squeeze(images.data[j, ...]) -
+                                             sval[j, ...]) / xgm_values[j].values
 
-                    accumulator += s
-                    counter += 1  
+                        accumulator += s
+                        counter += 1  
                                
             return accumulator, counter
 
