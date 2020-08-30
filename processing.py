@@ -621,11 +621,11 @@ def reduction_std(proposal, run, pattern, dirname=None,
               f'module = pr.Module(proposal={proposal}, run={run},'
               f' module=MODULE, pattern={pattern})\n'
               f'module.process_std(frame_types={frame_types}, trains={trains},'
-              f' njobs={njobs}, dirname={dirname})\n')
+              f' njobs={njobs}, dirname="{dirname}")\n')
     _submit_jobs(script)
 
     
-def reduction_norm(proposal, run, pattern, darkrun, dirname=None,
+def reduction_norm(proposal, run, pattern, dark_run, dirname=None,
                    frames={'image': 'image',
                            'dark': 'dark'},
                    dark_run_frames={'image': 'image',
@@ -637,7 +637,7 @@ def reduction_norm(proposal, run, pattern, darkrun, dirname=None,
               f'module.process_normalised(dark_run={dark_run}, '
               f'frames={frames}, dark_run_frames={dark_run_frames}, '
               f'trains={trains}, xgm_threshold={xgm_threshold}, '
-              f'njobs={njobs}, dirname={dirname})')
+              f'njobs={njobs}, dirname="{dirname}")')
     _submit_jobs(script)
 
 
@@ -653,7 +653,7 @@ def _submit_jobs(py_script, slurm_dir='slurm_log', module_range=range(16)):
                       f'python3 {file_name}.py')
         
         with open(f'{file_name}.py', 'w') as f:
-            f.write(script.replace('MODULE'), str(module))
+            f.write(py_script.replace('MODULE', str(module)))
 
         with open(f'{file_name}.sh', 'w') as f:
             f.write(process_sh)
