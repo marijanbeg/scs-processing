@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 import extra_data as ed
 import subprocess as sp
+import time
 
 def save_h5(data, dirname, filename):
     """Saves data in HDF5 file.
