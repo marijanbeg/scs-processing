@@ -614,6 +614,42 @@ def concat_module_images(dirname, run, run_type='normalised',
                                 'x': range(1, x + 1), 'y': range(1, y + 1)})
 
 
+def reduction_std(proposal, run, module, pattern,
+                  frame_types=None, trains=None, njobs=10, dirname=None):
+    script = ('import processing as pr\n'
+              f'module = pr.Module(proposal={proposal}, run={run},'
+              f' module={module}, pattern={pattern})\n'
+              f'module.process_std(frame_types={frame_types}, trains={trains},'
+              f' njobs={njobs}, dirname={dirname})\n'
+             )
+    submit_jobs(script)
+
+
+def reduction_norm():
+    pass
+
+
+def submit_jobs(py_script, slurm_dir='slurm_log', module_range=range(16)):
+    if not os.path.exists(slurm_dir):
+        os.makedirs(slurm_dir)
+    file_name = f'run_{time.time()}'
+    with open(f'{file_name}.py', 'w') as f:
+        f.write(script)
+    for module in module_range:
+        process_sh = ('#!/bin/bash\n'
+                      'source /usr/share/Modules/init/bash\n'
+                      'module load exfel\n'
+                      'module load exfel_anaconda3/1.1\n'
+                      f'python3 {file_name}.py'
+                     )
+        with open(f'{file_name}_module{module}.sh', 'w') as f:
+            f.write(process_sh)
+        command = ['sbatch', '-p', 'upex', '-t', '100', '-o',
+                   f'{slurm_dir}/slurm-%A.out', f'{file_name}.sh']
+        sp.run(command)
+
+
+# REMOVE
 def standard_run(proposal, run, module, pattern, dirname):
     """High-level function for processing a run with 'standard processing'"""
     module = Module(proposal=proposal, run=run, module=module, pattern=pattern)
