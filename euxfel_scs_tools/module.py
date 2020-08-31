@@ -99,11 +99,15 @@ class Module:
         return Train(train_id=train_id, train_data=train_data,
                      pattern=self.pattern)
 
-    def process_xgm(self, frame_type, trains, njobs=40):
+    def sum_frame(self, frame_type, trains, njobs=40):
         """Sums all individual frame values."""
         # If train indices are not specified, all trains are processed.
         if trains is None:
             trains = range(self.ntrains)
+            
+        if 'dark' in frame_type:
+            msg = f'XGM value cannot be extracted for {frame_type}.'
+            raise ValueError(msg)
 
         def thread_func(job_trains):
             s = []
@@ -111,22 +115,67 @@ class Module:
                 train = self.train(i)
 
                 if train.valid and train.train_id in self.xgm:
-                    frame_sum = np.mean(train[frame_type].data, axis=(1, 2))
+                    frame_sum = np.sum(train[frame_type].data, axis=(1, 2, 3), dtype='int64')      
                     xgm_values = self.xgm.frame_data(train.train_id, frame_type)
 
-                s += list(zip(frame_sum, xgm_values))
+                s += list(zip(frame_sum, xgm_values.values))
 
             return s
 
         # Run jobs in parallel. Default backend is used at the moment.
         ranges = job_chunks(njobs, trains)  # distribute trains
+        
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
-
-        print(res)
         
         # Sum results from individual jobs and return.
-        return sum(res)
+        repacked_tuple = tuple(zip(*[j for i in res for j in i]))
+        
+        return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
+    
+    def process_sum(self, frame_types=None, trains=None, njobs=40,
+                    dirname=None):
+        """Standard processing.
+
+        Parameters
+        ----------
+        frame_types : array_like
+
+            A list of unique frame types to be processed. If `None` all frame
+            types present in the pattern will be processed. Deafults to `None`.
+
+        trains : list
+
+            List of trains to be processed. Defaults to `None`, in which case
+            all trains in the run are processed.
+
+        njobs : int
+
+            The number of jobs in parallel processing. Defaults to 10.
+
+        dirname : str
+
+            Directory name in which resulting HDF5 file is saved. Defaults to
+            `None` and result is returned instead of saved.
+
+        """
+        if frame_types is None:
+            frame_types = [i for i in self.pattern if 'dark' not in i]
+
+        summed_frames = {}
+        for frame_type in frame_types:
+            key = f'{frame_type}_sum'
+            summed_frames[key] = self.sum_frame(frame_type,
+                                                trains=trains,
+                                                njobs=njobs)
+
+        # Save data if dirname is specified.
+        if dirname is not None:
+            dirname += f'/run_{self.run}/'
+            filename = f'module_{self.module}_sum.h5'
+            save_h5(summed_frames, dirname, filename)
+
+        return summed_frames
 
     def average_frame(self, frame_type, trains=None, njobs=40):
         """This method computes the average of all frames through trains.
