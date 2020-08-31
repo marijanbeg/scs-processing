@@ -5,14 +5,14 @@ import subprocess as sp
 
 
 def reduction_sum(proposal, run, pattern,
-                  frame_types=None, trains=None, njobs=40, dirname=None):
+                  frame_type, trains=None, njobs=40, dirname=None):
     script = ('import os, sys\n'
               'sys.path.append(os.path.dirname('
               'os.path.dirname(os.path.abspath(__file__))))\n'
               'import euxfel_scs_tools as scs\n'
               f'module = scs.Module(proposal={proposal}, run={run}, '
               f'module=MODULE, pattern={pattern})\n'
-              f'module.reduce_sum(frame_types={frame_types}, trains={trains}, '
+              f'module.reduce_sum(frame_type={frame_type}, trains={trains}, '
               f'njobs={njobs}, dirname="../{dirname}")\n')
     _submit_jobs(script)
 
