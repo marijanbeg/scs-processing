@@ -2,6 +2,7 @@ import os
 import h5py
 import joblib
 import numpy as np
+import extra_data as ed
 from .xgm import XGM
 from .train import Train
 
