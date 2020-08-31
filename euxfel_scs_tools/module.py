@@ -262,7 +262,7 @@ class Module:
 
         averaged_frames = {}
         for frame_type in frame_types:
-            key = f'{frame_type}_average'
+            key = f'{frame_type}_std'
             averaged_frames[key] = self.average_frame(frame_type,
                                                       trains=trains,
                                                       njobs=njobs)

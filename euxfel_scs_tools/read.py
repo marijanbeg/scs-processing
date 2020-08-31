@@ -11,7 +11,10 @@ def read(dirname, run, reduction_type, dataset):
     with h5py.File(filename, 'r') as f:
         module_data = f[dataset][:]
         
-    nframes, *rest = module_data.shape
+    if reduction_type in ['std', 'norm']:
+        nframes, x, y = module_data.shape
+    else:
+        nframes, *rest = module_data.shape
     
     if reduction_type in ['std', 'norm']:
         data = np.zeros((nframes, 16, x, y), dtype=np.float64)
