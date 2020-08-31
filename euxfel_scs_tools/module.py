@@ -123,6 +123,8 @@ class Module:
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
 
+        print(res)
+        
         # Sum results from individual jobs and return.
         return sum(res)
 
