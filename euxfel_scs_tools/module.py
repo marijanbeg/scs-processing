@@ -104,7 +104,7 @@ class Module:
         # If train indices are not specified, all trains are processed.
         if trains is None:
             trains = range(self.ntrains)
-            
+
         if 'dark' in frame_type:
             msg = f'XGM value cannot be extracted for {frame_type}.'
             raise ValueError(msg)
@@ -115,7 +115,7 @@ class Module:
                 train = self.train(i)
 
                 if train.valid and train.train_id in self.xgm:
-                    frame_sum = np.sum(train[frame_type].data, axis=(1, 2, 3), dtype='int64')      
+                    frame_sum = np.sum(train[frame_type].data, axis=(1, 2, 3), dtype='int64')
                     xgm_values = self.xgm.frame_data(train.train_id, frame_type)
 
                 s += list(zip(frame_sum, xgm_values.values))
@@ -124,16 +124,16 @@ class Module:
 
         # Run jobs in parallel. Default backend is used at the moment.
         ranges = job_chunks(njobs, trains)  # distribute trains
-        
+
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
-        
+
         # Sum results from individual jobs and return.
         repacked_tuple = tuple(zip(*[j for i in res for j in i]))
-        
+
         return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
-    
-    def process_sum(self, frame_types=None, trains=None, njobs=40,
+
+    def reduce_sum(self, frame_types=None, trains=None, njobs=40,
                     dirname=None):
         """Standard processing.
 
@@ -233,7 +233,7 @@ class Module:
         # Compute average and "squeeze" to remove empty dimension.
         return np.squeeze(total_sum / total_number)
 
-    def process_std(self, frame_types=None, trains=None, njobs=40,
+    def reduce_std(self, frame_types=None, trains=None, njobs=40,
                     dirname=None):
         """Standard processing.
 
@@ -277,16 +277,16 @@ class Module:
 
         return averaged_frames
 
-    def process_norm(self,
-                     dark_run,
-                     frames={'image': 'image',
-                             'dark': 'dark'},
-                     dark_run_frames={'image': 'image',
-                                      'dark': 'dark'},
-                     trains=None,
-                     xgm_threshold=(1e-5, np.inf),
-                     njobs=40,
-                     dirname=None):
+    def reduce_norm(self,
+                    dark_run,
+                    frames={'image': 'image',
+                            'dark': 'dark'},
+                    dark_run_frames={'image': 'image',
+                                     'dark': 'dark'},
+                    trains=None,
+                    xgm_threshold=(1e-5, np.inf),
+                    njobs=40,
+                    dirname=None):
         """Normalisation processing.
 
         This processing does the following:
