@@ -106,6 +106,7 @@ class Module:
             trains = range(self.ntrains)
 
         def thread_func(job_trains):
+            s = []
             for i in job_trains:
                 train = self.train(i)
 
