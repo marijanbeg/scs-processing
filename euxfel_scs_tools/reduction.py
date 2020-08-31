@@ -67,7 +67,7 @@ def _submit_jobs(py_script, slurm_dir='slurm_log',
 
         # Python file.
         with open(os.path.join(f'{script_dir}',
-                               f'{filebasename}.py', 'w') as f:
+                               f'{filebasename}.py'), 'w') as f:
             f.write(py_script.replace('MODULE', str(module)))
 
         # Bash file.
@@ -78,7 +78,7 @@ def _submit_jobs(py_script, slurm_dir='slurm_log',
                       f'python3 {filebasename}.py')
 
         with open(os.path.join(f'{script_dir}',
-                               f'{filebasename}.sh', 'w') as f:
+                               f'{filebasename}.sh'), 'w') as f:
             f.write(process_sh)
 
         # Submit job to the queue.

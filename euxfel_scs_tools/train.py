@@ -69,4 +69,4 @@ class Train:
             Container containing only data for the frames of the same type.
 
         """
-        return Container(self.data[self.pattern==frame_type, ...])
+        return Container(self.data[self.pattern == frame_type, ...])

@@ -75,7 +75,7 @@ class Module:
         return len(self.orun.train_ids)
 
     def nframes(self, frame_type):
-        return np.count_nonzero(np.array(self.pattern)==frame_type)
+        return np.count_nonzero(np.array(self.pattern) == frame_type)
 
     def train(self, index):
         """Extracts Train object for the train with `index`.
@@ -115,8 +115,10 @@ class Module:
                 train = self.train(i)
 
                 if train.valid and train.train_id in self.xgm:
-                    frame_sum = np.sum(train[frame_type].data, axis=(1, 2, 3), dtype='int64')
-                    xgm_values = self.xgm.frame_data(train.train_id, frame_type)
+                    frame_sum = np.sum(train[frame_type].data, axis=(1, 2, 3),
+                                       dtype='int64')
+                    xgm_values = self.xgm.frame_data(train.train_id,
+                                                     frame_type)
 
                 s += list(zip(frame_sum, xgm_values.values))
 
@@ -134,7 +136,7 @@ class Module:
         return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
 
     def reduce_sum(self, frame_types=None, trains=None, njobs=40,
-                    dirname=None):
+                   dirname=None):
         """Standard processing.
 
         Parameters
@@ -234,7 +236,7 @@ class Module:
         return np.squeeze(total_sum / total_number)
 
     def reduce_std(self, frame_types=None, trains=None, njobs=40,
-                    dirname=None):
+                   dirname=None):
         """Standard processing.
 
         Parameters
