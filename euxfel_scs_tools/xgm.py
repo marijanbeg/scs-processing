@@ -1,3 +1,4 @@
+import numpy as np
 import extra_data as ed
 
 
@@ -43,3 +44,15 @@ class XGM:
 
         # Read data
         self.data = orun.get_array(str1, str2)
+
+    def __contains__(self, train_id):
+        return train_id in self.data.coords['trainId']
+
+    @property
+    def reduced_pattern(self):
+        return [i for i in self.pattern if 'dark' not in i]
+
+    def frame_data(self, train_id, frame_type):
+        train_data = self.data.sel(trainId=train_id)
+        reduced_data = train_data[0:len(self.reduced_pattern)]
+        return reduced_data[np.array(self.reduced_pattern) == frame_type]

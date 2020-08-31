@@ -3,7 +3,7 @@ from .container import Container
 
 
 class Train:
-    def __init__(self, data, train_id, pattern):
+    def __init__(self, train_id, train_data, pattern):
         """Class representing a single train in the run.
 
         Parameters
@@ -27,16 +27,15 @@ class Train:
             normalisation.
 
         """
+        self.train_id = train_id
         self.pattern = np.array(pattern)
 
         # image.data might be missing. In that case None is assigned and later
         # used for train validation.
         try:
-            self.data = data[list(data.keys())[0]]['image.data']
-        except:
+            self.data = train_data[list(train_data.keys())[0]]['image.data']
+        except:  # what would be the right exception here?
             self.data = None
-
-        self.train_id = train_id
 
     @property
     def valid(self):

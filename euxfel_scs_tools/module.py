@@ -43,7 +43,8 @@ class Module:
                                 run=run).select(self.selector, 'image.data')
 
         # XGM object
-        self.xgm = XGM(proposal, run, module, pattern)
+        self.xgm = XGM(proposal=proposal, run=run, module=module,
+                       pattern=pattern)
 
     @property
     def selector(self):
@@ -71,19 +72,6 @@ class Module:
         """
         return len(self.orun.train_ids)
 
-    @property
-    def fpt(self):
-        """Number of Frames Per Train (FPT).
-
-        Returns
-        -------
-        int
-
-            Number of frames in each train.
-
-        """
-        return self.orun.detector_info(self.selector)['frames_per_train']
-
     def nframes(self, frame_type):
         return np.count_nonzero(np.array(self.pattern)==frame_type)
 
@@ -105,10 +93,9 @@ class Module:
             Train object.
 
         """
-        train_id, data = self.orun.train_from_index(index)
-
-        return Train(data=data, train_id=train_id, pattern=self.pattern)
-
+        train_id, train_data = self.orun.train_from_index(index)
+        return Train(train_id=train_id, train_data=train_data,
+                     pattern=self.pattern)
 
     def process_xgm(self, frame_type, trains, njobs=40):
         """Sums all individual frame values."""
@@ -116,24 +103,25 @@ class Module:
         if trains is None:
             trains = range(self.ntrains)
 
-        res = []
+        def thread_func(job_trains):
+            for i in job_trains:
+                train = self.train(i)
 
-        reduced_pattern = [i for i in self.pattern if 'dark' not in i]
-
-        s = []
-        for i in job_trains:
-            train = self.train(i)
-
-            if train.train_id in self.xgm.data.coords['trainId']:
-                reduced_xgm = self.xgm.data.sel(trainId=train.train_id)[0:len(reduced_pattern)]
-                xgm_values = reduced_xgm[np.array(reduced_pattern) == frame_type]
-
-                if train.valid:
+                if train.valid and train.train_id in self.xgm:
                     frame_sum = np.mean(train[frame_type].data, axis=(1, 2))
+                    xgm_values = self.xgm.frame_data(train.train_id, frame_type)
 
-            s += list(zip(frame_sum, xgm_values))
+                s += list(zip(frame_sum, xgm_values))
 
-        return s
+            return s
+
+        # Run jobs in parallel. Default backend is used at the moment.
+        ranges = job_chunks(njobs, trains)  # distribute trains
+        res = joblib.Parallel(n_jobs=njobs)(
+            joblib.delayed(thread_func)(i) for i in ranges)
+
+        # Sum results from individual jobs and return.
+        return sum(res)
 
     def average_frame(self, frame_type, trains=None, njobs=40):
         """This method computes the average of all frames through trains.
@@ -273,7 +261,6 @@ class Module:
             `None` and result is returned instead of saved.
 
         """
-        # If train indices are not specified, all trains are processed.
         if trains is None:
             trains = range(self.ntrains)
 
@@ -293,15 +280,6 @@ class Module:
         # normalise it by XGM value.
         sval = dark_average + dark_run_diff
 
-
-        # For details of the following code, please refer to the previous
-        # function.
-        accumulator = np.zeros((self.nframes(frames['image']), 128, 512),
-                               dtype='float64')
-        counter = 0
-
-        reduced_pattern = [i for i in self.pattern if 'dark' not in i]
-
         def thread_func(job_trains):
             accumulator = np.zeros((self.nframes(frames['image']), 128, 512),
                                    dtype='float64')
@@ -310,20 +288,19 @@ class Module:
             for i in job_trains:
                 train = self.train(i)
 
-                if train.train_id in self.xgm.data.coords['trainId']:
-                    reduced_xgm = self.xgm.data.sel(trainId=train.train_id)[0:len(reduced_pattern)]
-                    xgm_values = reduced_xgm[np.array(reduced_pattern) == frames['image']]
+                if train.valid and train.train_id in self.xgm:
+                    images = train[frames['image']]
+                    xgm_vals = self.xgm.frame_data(train_id=train.train_id,
+                                                   frame_type=frames['image'])
 
-                    if train.valid:
-                        images = train[frames['image']]
-                        s = np.zeros((images.n, 128, 512), dtype='float64')
-                        for j in range(images.n):
-                            if xgm_threshold[0] < xgm_values[j] < xgm_threshold[1]:
-                                s[j, ...] = (np.squeeze(images.data[j, ...]) -
-                                             sval[j, ...]) / xgm_values[j].values
+                    s = np.zeros((images.n, 128, 512), dtype='float64')
+                    for j in range(images.n):
+                        if xgm_threshold[0] < xgm_values[j] < xgm_threshold[1]:
+                            s[j, ...] = (np.squeeze(images.data[j, ...]) -
+                                         sval[j, ...]) / xgm_vals[j].values
 
-                        accumulator += s
-                        counter += 1
+                    accumulator += s
+                    counter += 1
 
             return accumulator, counter
 
