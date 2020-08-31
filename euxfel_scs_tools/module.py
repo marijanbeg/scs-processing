@@ -163,6 +163,7 @@ class Module:
         result = self.sum_frame(frame_type,
                                 trains=trains,
                                 njobs=njobs)
+        summed_frames = {}
         summed_frames[f'{frame_type}_sum'] = result[0]
         summed_frames['xgm'] = result[1]
 

@@ -12,7 +12,7 @@ def reduction_sum(proposal, run, pattern,
               'import euxfel_scs_tools as scs\n'
               f'module = scs.Module(proposal={proposal}, run={run}, '
               f'module=MODULE, pattern={pattern})\n'
-              f'module.reduce_sum(frame_type={frame_type}, trains={trains}, '
+              f'module.reduce_sum(frame_type=\'{frame_type}\', trains={trains}, '
               f'njobs={njobs}, dirname="../{dirname}")\n')
     _submit_jobs(script)
 
