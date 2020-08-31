@@ -38,7 +38,7 @@ def reduction_norm(proposal, run, pattern,
                                     'dark': 'dark'},
                    trains=None, xgm_threshold=(1e-5, np.inf),
                    njobs=40,
-                   dirname=None,):
+                   dirname=None):
     script = ('import os, sys\n'
               'import numpy as np\n'
               'sys.path.append(os.path.dirname('
@@ -46,7 +46,7 @@ def reduction_norm(proposal, run, pattern,
               'import euxfel_scs_tools as scs\n'
               f'module = scs.Module(proposal={proposal}, run={run}, '
               f'module=MODULE, pattern={pattern})\n'
-              f'module.process_norm(dark_run={dark_run}, '
+              f'module.reduce_norm(dark_run={dark_run}, '
               f'frames={frames}, dark_run_frames={dark_run_frames}, '
               f'trains={trains}, xgm_threshold={xgm_threshold}, '
               f'njobs={njobs}, dirname="../{dirname}")')

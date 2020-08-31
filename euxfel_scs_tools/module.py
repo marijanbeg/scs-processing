@@ -325,8 +325,8 @@ class Module:
         filename = os.path.join(dirname, f'run_{dark_run}',
                                 f'module_{self.module}_std.h5')
         with h5py.File(filename, 'r') as f:
-            dark_run_diff = (f[f'{dark_run_frames["image"]}_average'][:] -
-                             f[f'{dark_run_frames["dark"]}_average'][:])
+            dark_run_diff = (f[f'{dark_run_frames["image"]}_std'][:] -
+                             f[f'{dark_run_frames["dark"]}_std'][:])
 
         # This is the value we subtract from each image frame before we
         # normalise it by XGM value.
@@ -347,7 +347,7 @@ class Module:
 
                     s = np.zeros((images.n, 128, 512), dtype='float64')
                     for j in range(images.n):
-                        if xgm_threshold[0] < xgm_values[j] < xgm_threshold[1]:
+                        if xgm_threshold[0] < xgm_vals[j] < xgm_threshold[1]:
                             s[j, ...] = (np.squeeze(images.data[j, ...]) -
                                          sval[j, ...]) / xgm_vals[j].values
 
@@ -371,6 +371,6 @@ class Module:
         if dirname is not None:
             dirname += f'/run_{self.run}/'
             filename = f'module_{self.module}_norm.h5'
-            save_h5({f'{frames["image"]}_average': average}, dirname, filename)
+            save_h5({f'{frames["image"]}_norm': average}, dirname, filename)
 
         return average
