@@ -5,6 +5,7 @@ import numpy as np
 import extra_data as ed
 from .xgm import XGM
 from .train import Train
+from .util import save_h5, job_chunks
 
 
 class Module:
