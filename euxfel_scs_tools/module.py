@@ -135,8 +135,7 @@ class Module:
 
         return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
 
-    def reduce_sum(self, frame_types=None, trains=None, njobs=40,
-                   dirname=None):
+    def reduce_sum(self, frame_type, trains=None, njobs=40, dirname=None):
         """Standard processing.
 
         Parameters
@@ -161,15 +160,11 @@ class Module:
             `None` and result is returned instead of saved.
 
         """
-        if frame_types is None:
-            frame_types = [i for i in self.pattern if 'dark' not in i]
-
-        summed_frames = {}
-        for frame_type in frame_types:
-            key = f'{frame_type}_sum'
-            summed_frames[key] = self.sum_frame(frame_type,
-                                                trains=trains,
-                                                njobs=njobs)
+        result = self.sum_frame(frame_type,
+                                trains=trains,
+                                njobs=njobs)
+        summed_frames[f'{frame_type}_sum'] = result[0]
+        summed_frames['xgm'] = result[1]
 
         # Save data if dirname is specified.
         if dirname is not None:
