@@ -4,29 +4,28 @@ import numpy as np
 import subprocess as sp
 
 
+base_script = ('import os, sys\n'
+               'sys.path.append("'
+               f'{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}'
+               '")\nimport euxfel_scs_tools as scs\n'
+               'module = scs.Module(proposal={proposal}, run={run})'
+               'module={module}, pattern={pattern}\n'
+               )
+
+
 def reduction_sum(proposal, run, pattern,
                   frame_type, trains=None, njobs=40, dirname=None):
-    script = ('import os, sys\n'
-              'sys.path.append(os.path.dirname('
-              'os.path.dirname(os.path.abspath(__file__))))\n'
-              'import euxfel_scs_tools as scs\n'
-              f'module = scs.Module(proposal={proposal}, run={run}, '
-              f'module=MODULE, pattern={pattern})\n'
-              f'module.reduce_sum(frame_type=\'{frame_type}\', trains={trains}, '
-              f'njobs={njobs}, dirname="../{dirname}")\n')
+    script = (base_script.format(proposal=proposal, run=run, pattern=pattern) +
+              f'module.reduce_sum(frame_type="{frame_type}", trains={trains},'
+              f' njobs={njobs}, dirname="{os.path.abspath(dirname)}")\n')
     _submit_jobs(script)
 
 
 def reduction_std(proposal, run, pattern,
                   frame_types=None, trains=None, njobs=40, dirname=None):
-    script = ('import os, sys\n'
-              'sys.path.append(os.path.dirname('
-              'os.path.dirname(os.path.abspath(__file__))))\n'
-              'import euxfel_scs_tools as scs\n'
-              f'module = scs.Module(proposal={proposal}, run={run}, '
-              f'module=MODULE, pattern={pattern})\n'
+    script = (base_script.format(proposal=proposal, run=run, pattern=pattern) +
               f'module.reduce_std(frame_types={frame_types}, trains={trains}, '
-              f'njobs={njobs}, dirname="../{dirname}")\n')
+              f'njobs={njobs}, dirname="{os.path.abspath(dirname)}")\n')
     _submit_jobs(script)
 
 
@@ -39,18 +38,12 @@ def reduction_norm(proposal, run, pattern,
                    trains=None, xgm_threshold=(1e-5, np.inf),
                    njobs=40,
                    dirname=None):
-    script = ('import os, sys\n'
-              'import numpy as np\n'
-              'sys.path.append(os.path.dirname('
-              'os.path.dirname(os.path.abspath(__file__))))\n'
-              'import euxfel_scs_tools as scs\n'
-              f'module = scs.Module(proposal={proposal}, run={run}, '
-              f'module=MODULE, pattern={pattern})\n'
+    script = (base_script.format(proposal=proposal, run=run, pattern=pattern) +
               f'module.reduce_norm(dark_run={dark_run}, '
               f'frames={frames}, dark_run_frames={dark_run_frames}, '
               f'trains={trains}, xgm_threshold={xgm_threshold}, '
-              f'njobs={njobs}, dirname="../{dirname}")')
-    # Replaces inf because np is not printed.
+              f'njobs={njobs}, dirname="{os.path.abspath(dirname)}")')
+    # Replaces inf because "np." is missing.
     _submit_jobs(script.replace('inf),', 'np.inf),'))
 
 
@@ -68,7 +61,7 @@ def _submit_jobs(py_script, slurm_dir='slurm_log',
         # Python file.
         with open(os.path.join(f'{script_dir}',
                                f'{filebasename}.py'), 'w') as f:
-            f.write(py_script.replace('MODULE', str(module)))
+            f.write(py_script.format(module=module))
 
         # Bash file.
         process_sh = ('#!/bin/bash\n'
@@ -82,10 +75,11 @@ def _submit_jobs(py_script, slurm_dir='slurm_log',
             f.write(process_sh)
 
         # Submit job to the queue.
-        command = ['sbatch', '-p', 'upex', '-t', '100', '--chdir',
-                   f'{script_dir}', '-o', f'../{slurm_dir}/slurm-%A.out',
+        command = ['sbatch', '-p', 'upex', '-t', '100',
+                   '--chdir', f'{script_dir}', '-o',
+                   f'{os.path.abspath(slurm_dir)}/slurm-%A-{filebasename}.out',
                    f'{filebasename}.sh']
-        res = sp.run(command, stdout=sp.PIPE)
+        sp.run(command, stdout=sp.PIPE)
 
     print(f'Submitted {len(modules)} slurm jobs to the queue. '
           'Please wait for jobs to complete.')
