@@ -52,7 +52,7 @@ def _read_xgm(filename, dataset):
     xgm[0, ...] = xgm_data
 
     for module in range(1, 16):
-        with h5py.File(filename.replace(module=module), 'r') as f:
+        with h5py.File(filename.format(module=module), 'r') as f:
             module_data = f[dataset][:]
             xgm_data = f['xgm'][:]
         data[module, ...] = module_data

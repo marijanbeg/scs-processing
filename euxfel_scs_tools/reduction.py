@@ -8,8 +8,8 @@ base_script = ('import os, sys\n'
                'sys.path.append("'
                f'{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}'
                '")\nimport euxfel_scs_tools as scs\n'
-               'module = scs.Module(proposal={proposal}, run={run})'
-               'module={module}, pattern={pattern}\n'
+               'module = scs.Module(proposal={proposal}, run={run}, '
+               'module=$MODULE$, pattern={pattern})\n'
                )
 
 
@@ -61,7 +61,7 @@ def _submit_jobs(py_script, slurm_dir='slurm_log',
         # Python file.
         with open(os.path.join(f'{script_dir}',
                                f'{filebasename}.py'), 'w') as f:
-            f.write(py_script.format(module=module))
+            f.write(py_script.replace('$MODULE$', str(module)))
 
         # Bash file.
         process_sh = ('#!/bin/bash\n'
