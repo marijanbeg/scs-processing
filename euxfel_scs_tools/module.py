@@ -105,7 +105,7 @@ class Module:
         if trains is None:
             trains = range(self.ntrains)
 
-        if 'dark' in frame_type:
+        if read_xgm and 'dark' in frame_type:
             msg = f'XGM value cannot be extracted for {frame_type}.'
             raise ValueError(msg)
 
@@ -116,7 +116,7 @@ class Module:
 
                 if train.valid and train.train_id in self.xgm:
                     frame_sum = np.sum(train[frame_type].data, axis=(1, 2, 3),
-                                       dtype='int64')
+                                       dtype='float64')
                     if read_xgm:
                         xgm_values = self.xgm.frame_data(train.train_id,
                                                          frame_type)
@@ -134,11 +134,11 @@ class Module:
             joblib.delayed(thread_func)(i) for i in ranges)
 
         # Sum results from individual jobs and return.
-        repacked_tuple = tuple(zip(*[j for i in res for j in i]))
         if read_xgm:
+            repacked_tuple = tuple(zip(*[j for i in res for j in i]))
             return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
         else:
-            return np.array(repacked_tuple[0])
+            return np.array([j for i in res for j in i])
 
     def reduce_sum(self, frame_type, trains=None, njobs=40, dirname=None):
         """Standard processing.

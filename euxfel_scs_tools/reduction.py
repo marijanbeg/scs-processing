@@ -32,7 +32,7 @@ def reduction_sum_norm(proposal, run, pattern,
                        dirname=None):
     script = (base_script.format(proposal=proposal, run=run, pattern=pattern) +
               f'module.reduce_sum_norm(dark_run={dark_run}, frames={frames}, '
-              'dark_run_frames={dark_run_frames}, trains={trains}, '
+              f'dark_run_frames={dark_run_frames}, trains={trains}, '
               f'njobs={njobs}, dirname="{os.path.abspath(dirname)}")\n')
     _submit_jobs(script)
 
