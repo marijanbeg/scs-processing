@@ -99,7 +99,7 @@ class Module:
         return Train(train_id=train_id, train_data=train_data,
                      pattern=self.pattern)
 
-    def sum_frame(self, frame_type, trains, njobs=40):
+    def sum_frame(self, frame_type, trains, read_xgm=True, njobs=40):
         """Sums all individual frame values."""
         # If train indices are not specified, all trains are processed.
         if trains is None:
@@ -117,10 +117,13 @@ class Module:
                 if train.valid and train.train_id in self.xgm:
                     frame_sum = np.sum(train[frame_type].data, axis=(1, 2, 3),
                                        dtype='int64')
-                    xgm_values = self.xgm.frame_data(train.train_id,
-                                                     frame_type)
-
-                s += list(zip(frame_sum, xgm_values.values))
+                    if read_xgm:
+                        xgm_values = self.xgm.frame_data(train.train_id,
+                                                         frame_type)
+                if read_xgm:
+                    s += list(zip(frame_sum, xgm_values.values))
+                else:
+                    s += list(frame_sum)
 
             return s
 
@@ -132,8 +135,10 @@ class Module:
 
         # Sum results from individual jobs and return.
         repacked_tuple = tuple(zip(*[j for i in res for j in i]))
-
-        return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
+        if read_xgm:
+            return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
+        else:
+            return np.array(repacked_tuple[0])
 
     def reduce_sum(self, frame_type, trains=None, njobs=40, dirname=None):
         """Standard processing.
@@ -174,6 +179,52 @@ class Module:
             save_h5(summed_frames, dirname, filename)
 
         return summed_frames
+
+    def reduce_sum_norm(self,
+                        dark_run,
+                        frames={'image': 'image',
+                                'dark': 'dark'},
+                        dark_run_frames={'image': 'image',
+                                         'dark': 'dark'},
+                        trains=None,
+                        njobs=40,
+                        dirname=None):
+        if trains is None:
+            ntrains = self.ntrains
+        else:
+            ntrains = len(trains)
+
+        images = self.reduce_sum(frame_type=frames['image'],
+                                 trains=trains, njobs=njobs)
+        image_sum = images[f'{frames["image"]}_sum']
+
+        # summed intradark images from the image run
+        dark_sum = self.sum_frame(frames['dark'], trains,
+                                  read_xgm=False, njobs=njobs)
+        dark_avg = np.mean(dark_sum.reshape(ntrains, -1), axis=1)
+
+        # Second, we load image_average and dark_average for the dark run
+        # compute their difference and sum over all pixels.
+        filename = os.path.join(dirname, f'run_{dark_run}',
+                                f'module_{self.module}_std.h5')
+        with h5py.File(filename, 'r') as f:
+            dark_run_diff = (f[f'{dark_run_frames["image"]}_std'][:] -
+                             f[f'{dark_run_frames["dark"]}_std'][:])
+        dark_run_avg = np.mean(np.sum(dark_run_diff, axis=(1, 2)), axis=0)
+
+        result = {}
+        result[f'{frames["image"]}_sum'] = (image_sum.reshape(ntrains, -1)
+                                            - dark_avg.reshape(ntrains, -1)
+                                            - dark_run_avg).reshape(-1)
+        result['xgm'] = images['xgm']
+
+        # Save data if dirname is specified.
+        if dirname is not None:
+            dirname += f'/run_{self.run}/'
+            filename = f'module_{self.module}_sum_norm.h5'
+            save_h5(result, dirname, filename)
+
+        return result
 
     def average_frame(self, frame_type, trains=None, njobs=40):
         """This method computes the average of all frames through trains.
