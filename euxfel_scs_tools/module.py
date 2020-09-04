@@ -208,14 +208,20 @@ class Module:
         filename = os.path.join(dirname, f'run_{dark_run}',
                                 f'module_{self.module}_std.h5')
         with h5py.File(filename, 'r') as f:
-            dark_run_diff = (f[f'{dark_run_frames["image"]}_std'][:] -
-                             f[f'{dark_run_frames["dark"]}_std'][:])
-        dark_run_avg = np.mean(np.sum(dark_run_diff, axis=(1, 2)), axis=0)
+            dark_run_image = f[f'{dark_run_frames["image"]}_std'][:]
+            dark_run_dark = f[f'{dark_run_frames["dark"]}_std'][:]
+        dark_run_image_sum = np.sum(dark_run_image, axis=(1, 2))
+        dark_run_dark_avg = np.mean(np.sum(dark_run_dark, axis=(1, 2)), axis=0)
+        
+        _, npulses = image_sum.reshape(ntrains, -1).shape
+        
+        image_norm = (image_sum.reshape(ntrains, -1)
+                      - dark_avg.reshape(ntrains, -1)
+                      - dark_run_image_sum.reshape(-1, npulses)
+                      + dark_run_dark_avg).reshape(-1)
 
         result = {}
-        result[f'{frames["image"]}_sum'] = (image_sum.reshape(ntrains, -1)
-                                            - dark_avg.reshape(ntrains, -1)
-                                            - dark_run_avg).reshape(-1)
+        result[f'{frames["image"]}_sum'] = image_norm
         result['xgm'] = images['xgm']
 
         # Save data if dirname is specified.
