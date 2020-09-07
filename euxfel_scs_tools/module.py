@@ -201,6 +201,7 @@ class Module:
         # summed intradark images from the image run
         dark_sum = self.sum_frame(frames['dark'], trains,
                                   read_xgm=False, njobs=njobs)
+        # averaging over pulses (per train)
         dark_avg = np.mean(dark_sum.reshape(ntrains, -1), axis=1)
 
         # Second, we load image_average and dark_average for the dark run
