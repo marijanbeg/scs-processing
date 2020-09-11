@@ -132,13 +132,67 @@ class Module:
 
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
+        print(len(res))
+        for i in range(len(res)):
+            print(np.array(res[i]).shape)
 
-        # Sum results from individual jobs and return.
+        # Rearrange results from individual jobs and return.
+        repacked = np.vstack([np.array(i).reshape(len(i), -1) for i in res]).T.squeeze()
+        print(repacked.shape)
         if read_xgm:
-            repacked_tuple = tuple(zip(*[j for i in res for j in i]))
-            return np.array(repacked_tuple[0]), np.array(repacked_tuple[1])
+            return repacked[0, :], repacked[1, :]
         else:
-            return np.array([j for i in res for j in i])
+            return repacked
+
+
+    def sum_frame_bg_sub(self,
+                         dark_images,
+                         dark_dark,
+                         trains,
+                         frame_types={'image':'image', 'dark':'dark'},
+                         read_xgm=True,
+                         njobs=40):
+        # If train indices are not specified, all trains are processed.
+        if trains is None:
+            trains=range(self.ntrains)
+            
+        if read_xgm and 'dark' in frame_types['image']:
+            msg = f'XGM value cannot be extracted for {frame_type}.'
+            raise ValueError(msg)
+        
+        def thread_func(job_trains):
+            s = []
+            for i in job_trains:
+                train = self.train(i)
+                
+                if train.valid and train.train_id in self.xgm:
+                    images = np.squeeze(train[frame_types['image']].data)
+                    dark = np.squeeze(np.mean(train[frame_types['dark']].data, axis=0))
+                    print(images.shape, dark.shape, dark_images.shape, dark_dark.shape)
+                    frame_sum = np.sum((images - dark_images - (dark - dark_dark)),
+                                       axis=(1, 2))
+                    print(frame_sum.shape)
+                    if read_xgm:
+                        xgm_values = self.xgm.frame_data(train.train_id,
+                                                         frame_types['image'])
+                
+                if read_xgm:
+                    s += list(zip(frame_sum, xgm_values.values))
+                else:
+                    s += list(frame_sum)
+            
+            return s
+        
+        ranges = job_chunks(njobs, trains)
+        
+        res = joblib.Parallel(n_jobs=njobs)(
+            joblib.delayed(thread_func)(i) for i in ranges)
+        
+        repacked = np.squeeze(np.vstack(res).T)
+        if read_xgm:
+            return repacked[0, :], repacked[1, :]
+        else:
+            return repacked
 
     def reduce_sum(self, frame_type, trains=None, njobs=40, dirname=None):
         """Standard processing.
@@ -180,15 +234,15 @@ class Module:
 
         return summed_frames
 
-    def reduce_sum_norm(self,
-                        dark_run,
-                        frames={'image': 'image',
-                                'dark': 'dark'},
-                        dark_run_frames={'image': 'image',
-                                         'dark': 'dark'},
-                        trains=None,
-                        njobs=40,
-                        dirname=None):
+    def reduce_sum_bg_sub(self,
+                          dark_run,
+                          frames={'image': 'image',
+                                  'dark': 'dark'},
+                          dark_run_frames={'image': 'image',
+                                           'dark': 'dark'},
+                          trains=None,
+                          njobs=40,
+                          dirname=None):
         if trains is None:
             ntrains = self.ntrains
         else:
@@ -228,11 +282,53 @@ class Module:
         # Save data if dirname is specified.
         if dirname is not None:
             dirname += f'/run_{self.run}/'
-            filename = f'module_{self.module}_sum_norm.h5'
+            filename = f'module_{self.module}_sum_bg_sub.h5'
             save_h5(result, dirname, filename)
 
         return result
 
+    # background substraction done before averaging over pixels
+    # not exposed in reduction.py
+    def reduce_sum_bg_sub_2(self,
+                            dark_run,
+                            frames={'image': 'image',
+                                    'dark': 'dark'},
+                            dark_run_frames={'image': 'image',
+                                             'dark': 'dark'},
+                            trains=None,
+                            njobs=40,
+                            dirname=None):
+        if trains is None:
+            ntrains = self.ntrains
+        else:
+            ntrains = len(trains)
+
+        
+        # load image_average and dark_average for the dark run
+        # and compute their difference
+        filename = os.path.join(dirname, f'run_{dark_run}',
+                                f'module_{self.module}_std.h5')
+        with h5py.File(filename, 'r') as f:
+            dark_run_image = f[f'{dark_run_frames["image"]}_std'][:]
+            dark_run_dark = f[f'{dark_run_frames["dark"]}_std'][:]
+        
+        result = self.sum_frame_bg_sub(frame_types=frames, trains=trains,
+                                       dark_images=dark_run_image,
+                                       dark_dark = np.mean(dark_run_dark, axis=0),
+                                       njobs=njobs)
+        
+        summed_frames = {}
+        summed_frames[f'{frames["image"]}_sum'] = result[0]
+        summed_frames['xgm'] = result[1]
+
+        # Save data if dirname is specified.
+        if dirname is not None:
+            dirname += f'/run_{self.run}/'
+            filename = f'module_{self.module}_sum_bg_sub2.h5'
+            save_h5(summed_frames, dirname, filename)
+
+        return summed_frames
+    
     def average_frame(self, frame_type, trains=None, njobs=40):
         """This method computes the average of all frames through trains.
 

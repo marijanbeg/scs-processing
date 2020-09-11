@@ -21,17 +21,17 @@ def reduction_sum(proposal, run, pattern,
     _submit_jobs(script)
 
 
-def reduction_sum_norm(proposal, run, pattern,
-                       dark_run,
-                       frames={'image': 'image',
-                               'dark': 'dark'},
-                       dark_run_frames={'image': 'image',
-                                        'dark': 'dark'},
-                       trains=None,
-                       njobs=40,
-                       dirname=None):
+def reduction_sum_bg_sub(proposal, run, pattern,
+                         dark_run,
+                         frames={'image': 'image',
+                                 'dark': 'dark'},
+                         dark_run_frames={'image': 'image',
+                                          'dark': 'dark'},
+                         trains=None,
+                         njobs=40,
+                         dirname=None):
     script = (base_script.format(proposal=proposal, run=run, pattern=pattern) +
-              f'module.reduce_sum_norm(dark_run={dark_run}, frames={frames}, '
+              f'module.reduce_sum_bg_sub(dark_run={dark_run}, frames={frames}, '
               f'dark_run_frames={dark_run_frames}, trains={trains}, '
               f'njobs={njobs}, dirname="{os.path.abspath(dirname)}")\n')
     _submit_jobs(script)
