@@ -62,6 +62,6 @@ def _read_xgm(filename, dataset):
                          dims=('module', 'frame'),
                          coords={'module': range(16),
                                  'frame': range(nframes)}),
-            xr.DataArray(xgm[0, ...],
+            xr.DataArray(np.mean(xgm, axis=0),
                          dims=('frame'),
                          coords={'frame': range(nframes)}))

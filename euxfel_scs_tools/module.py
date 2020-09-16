@@ -120,10 +120,16 @@ class Module:
                     if read_xgm:
                         xgm_values = self.xgm.frame_data(train.train_id,
                                                          frame_type)
-                if read_xgm:
-                    s += list(zip(frame_sum, xgm_values.values))
+                        s += list(zip(frame_sum, xgm_values.values))
+                    else:
+                        s += list(frame_sum)
                 else:
-                    s += list(frame_sum)
+                    no_data = np.array([np.nan]*self.pattern.count(
+                        frame_type), dtype='float64')
+                    if read_xgm:
+                        s += list(zip(no_data, no_data))
+                    else:
+                        s += list(no_data)
 
             return s
 
@@ -132,19 +138,16 @@ class Module:
 
         res = joblib.Parallel(n_jobs=njobs)(
             joblib.delayed(thread_func)(i) for i in ranges)
-        print(len(res))
-        for i in range(len(res)):
-            print(np.array(res[i]).shape)
 
         # Rearrange results from individual jobs and return.
         repacked = np.vstack([np.array(i).reshape(len(i), -1) for i in res]).T.squeeze()
-        print(repacked.shape)
         if read_xgm:
             return repacked[0, :], repacked[1, :]
         else:
             return repacked
 
-
+    # not called in exposed methods
+    # used for per-pixel substraction
     def sum_frame_bg_sub(self,
                          dark_images,
                          dark_dark,
@@ -168,18 +171,14 @@ class Module:
                 if train.valid and train.train_id in self.xgm:
                     images = np.squeeze(train[frame_types['image']].data)
                     dark = np.squeeze(np.mean(train[frame_types['dark']].data, axis=0))
-                    print(images.shape, dark.shape, dark_images.shape, dark_dark.shape)
                     frame_sum = np.sum((images - dark_images - (dark - dark_dark)),
                                        axis=(1, 2))
-                    print(frame_sum.shape)
                     if read_xgm:
                         xgm_values = self.xgm.frame_data(train.train_id,
                                                          frame_types['image'])
-                
-                if read_xgm:
-                    s += list(zip(frame_sum, xgm_values.values))
-                else:
-                    s += list(frame_sum)
+                        s += list(zip(frame_sum, xgm_values.values))
+                    else:
+                        s += list(frame_sum)
             
             return s
         
@@ -243,20 +242,21 @@ class Module:
                           trains=None,
                           njobs=40,
                           dirname=None):
-        if trains is None:
-            ntrains = self.ntrains
-        else:
-            ntrains = len(trains)
+        image_sum, xgm = self.sum_frame(frame_type=frames['image'],
+                                        trains=trains, njobs=njobs)
 
-        images = self.reduce_sum(frame_type=frames['image'],
-                                 trains=trains, njobs=njobs)
-        image_sum = images[f'{frames["image"]}_sum']
-
+        npulses = self.pattern.count(frames['image'])
+        
         # summed intradark images from the image run
-        dark_sum = self.sum_frame(frames['dark'], trains,
-                                  read_xgm=False, njobs=njobs)
+        if 'dark' in frames.keys():
+            dark_sum = self.sum_frame(frames['dark'], trains,
+                                      read_xgm=False, njobs=njobs)
+        else:
+            print('no dark')
+            dark_sum = np.zeros_like(image_sum)
         # averaging over pulses (per train)
-        dark_avg = np.mean(dark_sum.reshape(ntrains, -1), axis=1)
+        print(image_sum.shape, dark_sum.shape)
+        dark_avg = np.mean(dark_sum.reshape(-1, npulses), axis=1)
 
         # Second, we load image_average and dark_average for the dark run
         # compute their difference and sum over all pixels.
@@ -264,20 +264,25 @@ class Module:
                                 f'module_{self.module}_std.h5')
         with h5py.File(filename, 'r') as f:
             dark_run_image = f[f'{dark_run_frames["image"]}_std'][:]
-            dark_run_dark = f[f'{dark_run_frames["dark"]}_std'][:]
+            if 'dark' in dark_run_frames.keys():
+                dark_run_dark = f[f'{dark_run_frames["dark"]}_std'][:]
+            else:
+                dark_run_dark = np.zeros_like(dark_run_image)
+
         dark_run_image_sum = np.sum(dark_run_image, axis=(1, 2))
         dark_run_dark_avg = np.mean(np.sum(dark_run_dark, axis=(1, 2)), axis=0)
         
-        _, npulses = image_sum.reshape(ntrains, -1).shape
+        print(image_sum.shape, dark_avg.shape, dark_run_image_sum.shape, dark_run_dark_avg.shape)
         
-        image_norm = (image_sum.reshape(ntrains, -1)
-                      - dark_avg.reshape(ntrains, -1)
+        image_norm = (image_sum.reshape(-1, npulses)
+                      - dark_avg.reshape(-1, 1)
                       - dark_run_image_sum.reshape(-1, npulses)
                       + dark_run_dark_avg).reshape(-1)
 
         result = {}
         result[f'{frames["image"]}_sum'] = image_norm
-        result['xgm'] = images['xgm']
+        result['xgm'] = xgm
+        print(np.any(np.isnan(xgm)))
 
         # Save data if dirname is specified.
         if dirname is not None:
@@ -298,11 +303,6 @@ class Module:
                             trains=None,
                             njobs=40,
                             dirname=None):
-        if trains is None:
-            ntrains = self.ntrains
-        else:
-            ntrains = len(trains)
-
         
         # load image_average and dark_average for the dark run
         # and compute their difference
@@ -314,7 +314,7 @@ class Module:
         
         result = self.sum_frame_bg_sub(frame_types=frames, trains=trains,
                                        dark_images=dark_run_image,
-                                       dark_dark = np.mean(dark_run_dark, axis=0),
+                                       dark_dark=np.mean(dark_run_dark, axis=0),
                                        njobs=njobs)
         
         summed_frames = {}
