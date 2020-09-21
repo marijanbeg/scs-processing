@@ -37,7 +37,7 @@ def save_h5(data, dirname, filename):
             f.create_dataset(key, data=value)
 
 
-def job_chunks(njobs, trains):
+def job_chunks(njobs, trains, frames=None):
     """Function for splitting an array of trains into chunks for parallel
     processing.
 
@@ -56,5 +56,11 @@ def job_chunks(njobs, trains):
     # number of trains, whereas the last job is going to process the rest.
     chunk = int(np.ceil(len(trains) / njobs))
 
-    return [trains[step:step + chunk]
-            for step in np.arange(len(trains), step=chunk)]
+    if frames is None:
+        res = [trains[step:step + chunk]
+               for step in np.arange(len(trains), step=chunk)]
+    else:
+        res = [[trains[step:step + chunk], frames[step:step + chunk]]
+               for step in np.arange(len(trains), step=chunk)]
+    
+    return res

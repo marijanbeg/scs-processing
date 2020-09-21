@@ -37,11 +37,12 @@ def reduction_sum_bg_sub(proposal, run, pattern,
     _submit_jobs(script)
 
 
-def reduction_std(proposal, run, pattern,
-                  frame_types=None, trains=None, njobs=40, dirname=None):
+def reduction_std(proposal, run, pattern, frame_types=None, trains=None,
+                  frame_sel=None, njobs=40, dirname=None):
     script = (base_script.format(proposal=proposal, run=run, pattern=pattern) +
               f'module.reduce_std(frame_types={frame_types}, trains={trains}, '
-              f'njobs={njobs}, dirname="{os.path.abspath(dirname)}")\n')
+              f'frame_sel={frame_sel}, njobs={njobs}, '
+              f'dirname="{os.path.abspath(dirname)}")\n')
     _submit_jobs(script)
 
 
@@ -51,13 +52,15 @@ def reduction_norm(proposal, run, pattern,
                            'dark': 'dark'},
                    dark_run_frames={'image': 'image',
                                     'dark': 'dark'},
-                   trains=None, xgm_threshold=(1e-5, np.inf),
+                   trains=None, frame_sel=None,
+                   xgm_threshold=(1e-5, np.inf),
                    njobs=40,
                    dirname=None):
     script = (base_script.format(proposal=proposal, run=run, pattern=pattern) +
               f'module.reduce_norm(dark_run={dark_run}, '
               f'frames={frames}, dark_run_frames={dark_run_frames}, '
-              f'trains={trains}, xgm_threshold={xgm_threshold}, '
+              f'trains={trains}, frame_sel={frame_sel}, '
+              f'xgm_threshold={xgm_threshold}, '
               f'njobs={njobs}, dirname="{os.path.abspath(dirname)}")')
     # Replaces inf because "np." is missing.
     _submit_jobs(script.replace('inf),', 'np.inf),'))

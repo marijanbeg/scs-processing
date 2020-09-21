@@ -252,10 +252,8 @@ class Module:
             dark_sum = self.sum_frame(frames['dark'], trains,
                                       read_xgm=False, njobs=njobs)
         else:
-            print('no dark')
             dark_sum = np.zeros_like(image_sum)
         # averaging over pulses (per train)
-        print(image_sum.shape, dark_sum.shape)
         dark_avg = np.mean(dark_sum.reshape(-1, npulses), axis=1)
 
         # Second, we load image_average and dark_average for the dark run
@@ -271,9 +269,7 @@ class Module:
 
         dark_run_image_sum = np.sum(dark_run_image, axis=(1, 2))
         dark_run_dark_avg = np.mean(np.sum(dark_run_dark, axis=(1, 2)), axis=0)
-        
-        print(image_sum.shape, dark_avg.shape, dark_run_image_sum.shape, dark_run_dark_avg.shape)
-        
+                
         image_norm = (image_sum.reshape(-1, npulses)
                       - dark_avg.reshape(-1, 1)
                       - dark_run_image_sum.reshape(-1, npulses)
@@ -282,8 +278,7 @@ class Module:
         result = {}
         result[f'{frames["image"]}_sum'] = image_norm
         result['xgm'] = xgm
-        print(np.any(np.isnan(xgm)))
-
+        
         # Save data if dirname is specified.
         if dirname is not None:
             dirname += f'/run_{self.run}/'
@@ -329,7 +324,8 @@ class Module:
 
         return summed_frames
     
-    def average_frame(self, frame_type, trains=None, njobs=40):
+    def average_frame(self, frame_type, trains=None,
+                      frame_sel=None, njobs=40):
         """This method computes the average of all frames through trains.
 
         Parameters
@@ -357,36 +353,44 @@ class Module:
         # If train indices are not specified, all trains are processed.
         if trains is None:
             trains = range(self.ntrains)
+        
+        if frame_sel is None:
+            frame_sel = np.ones((self.ntrains, self.nframes(frame_type)),
+                             dtype='bool')
 
         # Function ran on an single thread.
-        def thread_func(job_trains):
+        def thread_func(job_trains, job_frames):
             accumulator = np.zeros((self.nframes(frame_type), 1, 128, 512),
                                    dtype='float64')
-            counter = 0
+            counter = np.zeros(self.nframes(frame_type), dtype='int')
 
             # We iterate through all trains.
-            for i in job_trains:
+            for i, frames in zip(job_trains, job_frames):
                 train = self.train(i)  # extract the train object
                 if train.valid:  # Train is valid if it contains image.data.
-                    accumulator += train[frame_type].data
-                    counter += 1
+                    accumulator[frames] += train[frame_type].data[frames]
+                    counter[frames] += 1
 
             return accumulator, counter
 
         # Run jobs in parallel. Default backend is used at the moment.
-        ranges = job_chunks(njobs, trains)  # distribute trains
+        ranges = job_chunks(njobs, trains, frame_sel)  # distribute trains
         res = joblib.Parallel(n_jobs=njobs)(
-            joblib.delayed(thread_func)(i) for i in ranges)
+            joblib.delayed(thread_func)(*i) for i in ranges)
 
         # Extract and sum results from individual jobs.
         total_sum = sum(list(zip(*res))[0])
         total_number = sum(list(zip(*res))[1])
 
         # Compute average and "squeeze" to remove empty dimension.
-        return np.squeeze(total_sum / total_number)
+        nax = np.newaxis
+        res = np.divide(total_sum,
+                        total_number[:, nax, nax, nax],
+                        where=(total_number != 0)[:, nax, nax, nax])
+        return np.squeeze(res)
 
     def reduce_std(self, frame_types=None, trains=None, njobs=40,
-                   dirname=None):
+                   frame_sel=None, dirname=None):
         """Standard processing.
 
         Parameters
@@ -419,6 +423,7 @@ class Module:
             key = f'{frame_type}_std'
             averaged_frames[key] = self.average_frame(frame_type,
                                                       trains=trains,
+                                                      frame_sel=frame_sel,
                                                       njobs=njobs)
 
         # Save data if dirname is specified.
@@ -436,6 +441,7 @@ class Module:
                     dark_run_frames={'image': 'image',
                                      'dark': 'dark'},
                     trains=None,
+                    frame_sel=None,
                     xgm_threshold=(1e-5, np.inf),
                     njobs=40,
                     dirname=None):
@@ -470,9 +476,14 @@ class Module:
         if trains is None:
             trains = range(self.ntrains)
 
+        if frame_sel is None:
+            frame_sel = np.ones((self.ntrains, self.nframes(frames['image'])),
+                                dtype='bool')
+
         # First, we compute the average of darks.
         dark_average = self.average_frame(frame_type=frames['dark'],
-                                          trains=trains, njobs=njobs)
+                                          trains=trains, frame_sel=frame_sel,
+                                          njobs=njobs)
 
         # Second, we load image_average and dark_average for the dark run and
         # compute their difference.
@@ -486,12 +497,12 @@ class Module:
         # normalise it by XGM value.
         sval = dark_average + dark_run_diff
 
-        def thread_func(job_trains):
+        def thread_func(job_trains, job_frames):
             accumulator = np.zeros((self.nframes(frames['image']), 128, 512),
                                    dtype='float64')
-            counter = 0
+            counter = np.zeros(self.nframes(frames['image']), dtype='int')
 
-            for i in job_trains:
+            for i, frame_sel in zip(job_trains, job_frames):
                 train = self.train(i)
 
                 if train.valid and train.train_id in self.xgm:
@@ -501,26 +512,29 @@ class Module:
 
                     s = np.zeros((images.n, 128, 512), dtype='float64')
                     for j in range(images.n):
-                        if xgm_threshold[0] < xgm_vals[j] < xgm_threshold[1]:
+                        if (xgm_threshold[0] < xgm_vals[j] < xgm_threshold[1]
+                            and frame_sel[j]):
                             s[j, ...] = (np.squeeze(images.data[j, ...]) -
                                          sval[j, ...]) / xgm_vals[j].values
 
                     accumulator += s
-                    counter += 1
+                    counter[frame_sel] += 1
 
             return accumulator, counter
 
-        ranges = job_chunks(njobs, trains)
+        ranges = job_chunks(njobs, trains, frame_sel)
         res = joblib.Parallel(n_jobs=njobs)(
-            joblib.delayed(thread_func)(i) for i in ranges)
+            joblib.delayed(thread_func)(*i) for i in ranges)
 
         # Extract and sum results from individual jobs.
         total_sum = sum(list(zip(*res))[0])
         total_number = sum(list(zip(*res))[1])
-
+        
         # Compute the average of frames.
-        average = total_sum / total_number
-
+        nax = np.newaxis
+        average = np.divide(total_sum,
+                            total_number[:, nax, nax],
+                            where=(total_number != 0)[:, nax, nax])
         # Save data if dirname is specified.
         if dirname is not None:
             dirname += f'/run_{self.run}/'
