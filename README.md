@@ -1,4 +1,4 @@
-# Data reduction at the EuXFEL SCS instrument for DSSC detector data
+# Data reduction at the EuXFEL SCS instrument for DSSC detector data (proposal 2222, 2530)
 Marijan Beg<sup>1</sup>, Martin Lang<sup>1</sup>, Thomas Kluyver<sup>2</sup>, Robert Rosca<sup>2</sup>, and Hans Fangohr<sup>1,2</sup>
 
 <sup>1</sup> *Faculty of Engineering and Physical Sciences, University of Southampton, Southampton SO17 1BJ, United Kingdom*  
