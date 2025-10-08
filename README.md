@@ -1,5 +1,5 @@
 # Data processing at the European-XFEL SCS instrument for the DSSC detector data (proposals 2222 and 2530)
-Marijan Beg<sup>1,2,3</sup>, Martin Lang<sup>3,4</sup>, and Hans Fangohr<sup>2,3,4</sup>
+[Marijan Beg](https://github.com/marijanbeg)<sup>1,2,3</sup>, [Martin Lang](https://github.com/lang-m)<sup>3,4</sup>, and [Hans Fangohr](https://github.com/fangohr)<sup>2,3,4</sup>
 
 <sup>1</sup> *Department of Earth Science and Engineering, Imperial College London, London SW7 2AZ, UK*  
 <sup>2</sup> *European XFEL GmbH, Holzkoppel 4, 22869 Schenefeld, Germany*   
