@@ -1,9 +1,9 @@
 # Data processing at the European-XFEL SCS instrument for the DSSC detector data (proposals 2222 and 2530)
 Marijan Beg<sup>1,2,3</sup>, Martin Lang<sup>3,4</sup>, and Hans Fangohr<sup>2,3,4</sup>
 
-<sup>1</sup> *Department of Earth Science and Engineering, Imperial College London, London SW7 2AZ, UK*
-<sup>2</sup> *European XFEL GmbH, Holzkoppel 4, 22869 Schenefeld, Germany*  
-<sup>3</sup> *Faculty of Engineering and Physical Sciences, University of Southampton, Southampton SO17 1BJ, UK* 
+<sup>1</sup> *Department of Earth Science and Engineering, Imperial College London, London SW7 2AZ, UK*  
+<sup>2</sup> *European XFEL GmbH, Holzkoppel 4, 22869 Schenefeld, Germany*   
+<sup>3</sup> *Faculty of Engineering and Physical Sciences, University of Southampton, Southampton SO17 1BJ, UK*  
 <sup>4</sup> *Max Planck Institute for the Structure and Dynamics of Matter, Luruper Chaussee 149, 22761 Hamburg, Germany*  
 
 ## About
